@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%; /* Ensure html, body, and root div take full height */
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Prevent scrolling if content exceeds viewport */
+}
+
+/* Ensure the App component also takes full height */
+.App {
+  height: 100%;
+  width: 100%;
+}
