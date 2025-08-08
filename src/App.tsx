@@ -1,11 +1,14 @@
 import React, { useState } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import AuthForm from "./components/AuthForm";
 import Dashboard from "./components/Dashboard";
+import MoviesPage from "./components/MoviesPage"; // Import MoviesPage
+import SeriesPage from "./components/SeriesPage"; // Import SeriesPage
 import Pattern from "./components/Pattern";
 import type { PersonalInfo } from "./type";
 import axios from "axios";
 import './index.css';
-import { mockUserDashboardData } from "./mockData";
+import { mockUserDashboardData } from './mockData'; 
 
 const initialData: PersonalInfo = {
   userName: "",
@@ -46,7 +49,6 @@ const App: React.FC = () => {
       if (isLoginForm && response.status === 200) {
         setIsLoggedIn(true);
         setLoggedInUserEmail(personalInfo.email); 
-        // Find the user's display name from mock data if available, otherwise use email or 'کاربر'
         const userInMock = mockUserDashboardData.find(user => user.email === personalInfo.email);
         setDisplayUserName(userInMock ? userInMock.userName : personalInfo.email.split('@')[0] || 'کاربر'); 
       } else if (!isLoginForm && response.status === 201) {
@@ -75,25 +77,57 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-center items-center p-4 overflow-hidden">
-      <Pattern /> 
+    <Router> {/* Wrap the entire application with Router */}
+      <div className="relative min-h-screen flex flex-col justify-center items-center p-4">
+        <Pattern /> 
 
-      <div className="z-10 w-full h-full flex justify-center items-center"> {/* Added h-full here */}
-        {isLoggedIn ? (
-          <Dashboard userEmail={loggedInUserEmail} userName={displayUserName} onLogout={handleLogout} /> 
-        ) : (
-          <AuthForm
-            personalInfo={personalInfo}
-            onUpdate={handleUpdate}
-            onSubmit={handleSubmit}
-            isLogin={isLogin}
-            toggleForm={toggleForm}
-            message={message}
-            error={error}
-          />
-        )}
+        <div className="z-10 w-full h-full flex justify-center items-center">
+          <Routes> {/* Define routes */}
+            <Route 
+              path="/" 
+              element={
+                isLoggedIn ? <Navigate to="/dashboard" /> : (
+                  <AuthForm
+                    personalInfo={personalInfo}
+                    onUpdate={handleUpdate}
+                    onSubmit={handleSubmit}
+                    isLogin={isLogin}
+                    toggleForm={toggleForm}
+                    message={message}
+                    error={error}
+                  />
+                )
+              } 
+            />
+            <Route 
+              path="/dashboard" 
+              element={
+                isLoggedIn ? (
+                  <Dashboard userEmail={loggedInUserEmail} userName={displayUserName} onLogout={handleLogout} />
+                ) : (
+                  <Navigate to="/" /> // Redirect to login if not logged in
+                )
+              } 
+            />
+            <Route 
+              path="/movies" 
+              element={
+                isLoggedIn ? <MoviesPage /> : <Navigate to="/" /> // Protect this route
+              } 
+            />
+            <Route 
+              path="/series" 
+              element={
+                isLoggedIn ? <SeriesPage /> : <Navigate to="/" /> // Protect this route
+              } 
+            />
+            {/* Add more routes here for favorites, help, about, etc. if needed */}
+            {/* Fallback route for unmatched paths */}
+            <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/"} />} />
+          </Routes>
+        </div>
       </div>
-    </div>
+    </Router>
   );
 };
 

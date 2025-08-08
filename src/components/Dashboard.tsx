@@ -1,5 +1,6 @@
 import React from 'react';
 import { mockUserDashboardData, type MovieOrSeries, type UserDashboardData } from '../mockData';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 interface DashboardProps {
   userEmail: string; // The logged-in user's email for data lookup
@@ -8,13 +9,14 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) => {
+  const navigate = useNavigate(); // Initialize useNavigate hook
+
   const userData: UserDashboardData | undefined = mockUserDashboardData.find(
     (user) => user.email === userEmail
   );
 
   // State for dark mode toggle (applied to body class)
   const [isDarkMode, setIsDarkMode] = React.useState(() => {
-    // Initialize dark mode from localStorage or system preference
     if (typeof window !== 'undefined') {
       const savedMode = localStorage.getItem('theme');
       if (savedMode) {
@@ -22,10 +24,9 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
       }
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
-    return false; // Default to light mode on server-side rendering
+    return false;
   });
 
-  // Apply dark/light mode class to body and save preference
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
       if (isDarkMode) {
@@ -38,16 +39,15 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
     }
   }, [isDarkMode]);
 
-  // Handler for navigation links (placeholder)
-  const handleNavLinkClick = (section: string) => {
-    console.log(`Navigating to ${section} section...`);
-    // In a real app, you would change the route or filter content here
+  // Handler for navigation links
+  const handleNavLinkClick = (path: string) => {
+    navigate(path); // Use navigate to change route
   };
 
-  // Handler for "مشاهده همه" links (placeholder)
+  // Handler for "مشاهده همه" links (placeholder for now, can be updated to specific pages later)
   const handleViewAllClick = (section: string) => {
     console.log(`Viewing all ${section} content...`);
-    // In a real app, you would navigate to a dedicated page for that category
+    // In a real app, you might navigate to a filtered list page
   };
 
   if (!userData) {
@@ -69,12 +69,12 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
     <div
       key={item.id}
       className="relative flex-shrink-0 w-48 bg-gray-800 rounded-lg overflow-hidden shadow-lg transform transition-transform hover:scale-105"
+      onClick={() => console.log(`Clicked on content: ${item.title}`)} // Placeholder for content details page
     >
       <img
         src={item.thumbnail}
         alt={item.title}
         className="w-full h-32 object-cover"
-        // Fallback image in case the real image fails to load
         onError={(e) => { e.currentTarget.src = 'https://placehold.co/300x180/000/fff?text=No+Image'; }}
       />
       {item.progress !== undefined && (
@@ -133,19 +133,19 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
             <span className="font-inter">Flixio</span>
           </div>
           <nav className="space-y-4">
-            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('Home')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
+            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('/dashboard')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
               خانه
             </a>
-            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('Movies')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
+            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('/movies')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"></path></svg>
               فیلم‌ها
             </a>
-            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('Series')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
+            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('/series')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14 11a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4zM2 11a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"></path></svg>
               سریال‌ها
             </a>
-            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('Favorites')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
+            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('/favorites')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"></path></svg>
               علاقه‌مندی‌ها
             </a>
@@ -153,11 +153,11 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
         </div>
         <div>
           <div className="space-y-4 mb-6">
-            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('Help')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
+            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('/help')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path></svg>
               راهنما
             </a>
-            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('AboutUs')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
+            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('/about')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path></svg>
               درباره ما
             </a>
