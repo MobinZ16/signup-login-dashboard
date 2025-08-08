@@ -1,6 +1,5 @@
 import React from 'react';
-// Corrected import path for mockData
-import { mockUserDashboardData, type MovieOrSeries, type UserDashboardData } from '../mockData'; 
+import { mockUserDashboardData, type MovieOrSeries, type UserDashboardData } from '../mockData';
 
 interface DashboardProps {
   userEmail: string; // The logged-in user's email for data lookup
@@ -12,6 +11,44 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
   const userData: UserDashboardData | undefined = mockUserDashboardData.find(
     (user) => user.email === userEmail
   );
+
+  // State for dark mode toggle (applied to body class)
+  const [isDarkMode, setIsDarkMode] = React.useState(() => {
+    // Initialize dark mode from localStorage or system preference
+    if (typeof window !== 'undefined') {
+      const savedMode = localStorage.getItem('theme');
+      if (savedMode) {
+        return savedMode === 'dark';
+      }
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false; // Default to light mode on server-side rendering
+  });
+
+  // Apply dark/light mode class to body and save preference
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (isDarkMode) {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('theme', 'light');
+      }
+    }
+  }, [isDarkMode]);
+
+  // Handler for navigation links (placeholder)
+  const handleNavLinkClick = (section: string) => {
+    console.log(`Navigating to ${section} section...`);
+    // In a real app, you would change the route or filter content here
+  };
+
+  // Handler for "مشاهده همه" links (placeholder)
+  const handleViewAllClick = (section: string) => {
+    console.log(`Viewing all ${section} content...`);
+    // In a real app, you would navigate to a dedicated page for that category
+  };
 
   if (!userData) {
     return (
@@ -37,6 +74,8 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
         src={item.thumbnail}
         alt={item.title}
         className="w-full h-32 object-cover"
+        // Fallback image in case the real image fails to load
+        onError={(e) => { e.currentTarget.src = 'https://placehold.co/300x180/000/fff?text=No+Image'; }}
       />
       {item.progress !== undefined && (
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-600">
@@ -68,7 +107,8 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
 
   const renderRecentlyUpdatedItem = (item: MovieOrSeries) => (
     <div key={item.id} className="flex items-center p-2 rounded-lg hover:bg-gray-800 transition duration-200">
-      <img src={item.thumbnail} alt={item.title} className="w-12 h-12 rounded-md object-cover mr-3" />
+      <img src={item.thumbnail} alt={item.title} className="w-12 h-12 rounded-md object-cover mr-3" 
+           onError={(e) => { e.currentTarget.src = 'https://placehold.co/80x80/000/fff?text=No+Image'; }}/>
       <div className="flex-grow">
         <h4 className="text-white font-semibold text-sm">{item.title}</h4>
         <p className="text-gray-400 text-xs">{item.season} {item.episode}</p>
@@ -93,19 +133,19 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
             <span className="font-inter">Flixio</span>
           </div>
           <nav className="space-y-4">
-            <a href="#" className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
+            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('Home')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
               خانه
             </a>
-            <a href="#" className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
+            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('Movies')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"></path></svg>
               فیلم‌ها
             </a>
-            <a href="#" className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
+            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('Series')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14 11a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4zM2 11a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"></path></svg>
               سریال‌ها
             </a>
-            <a href="#" className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
+            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('Favorites')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"></path></svg>
               علاقه‌مندی‌ها
             </a>
@@ -113,11 +153,11 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
         </div>
         <div>
           <div className="space-y-4 mb-6">
-            <a href="#" className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
+            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('Help')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path></svg>
               راهنما
             </a>
-            <a href="#" className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
+            <a href="javascript:void(0)" onClick={() => handleNavLinkClick('AboutUs')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path></svg>
               درباره ما
             </a>
@@ -125,9 +165,15 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
           <div className="flex items-center justify-between text-gray-300">
             <label htmlFor="dark-mode-toggle" className="flex items-center cursor-pointer">
               <div className="relative">
-                <input type="checkbox" id="dark-mode-toggle" className="sr-only" />
+                <input 
+                  type="checkbox" 
+                  id="dark-mode-toggle" 
+                  className="sr-only" 
+                  checked={isDarkMode} 
+                  onChange={() => setIsDarkMode(!isDarkMode)} 
+                />
                 <div className="block bg-gray-600 w-10 h-6 rounded-full"></div>
-                <div className="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition"></div>
+                <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform ${isDarkMode ? 'translate-x-full bg-[#09f]' : ''}`}></div>
               </div>
               <div className="ml-3 text-sm font-medium">حالت تیره</div>
             </label>
@@ -168,10 +214,10 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
             <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center text-white font-bold">
               {userName.charAt(0).toUpperCase()}
             </div>
-            <button className="text-gray-300 hover:text-[#09f] transition duration-200">
+            <button onClick={() => console.log("Notifications clicked")} className="text-gray-300 hover:text-[#09f] transition duration-200">
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L14 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"></path></svg>
             </button>
-            <button className="text-gray-300 hover:text-[#09f] transition duration-200">
+            <button onClick={() => console.log("Settings clicked")} className="text-gray-300 hover:text-[#09f] transition duration-200">
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.49 3.17c-.381-.088-.783.007-1.15.158 1.287 1.42 2.062 3.208 2.062 5.17 0 1.962-.775 3.75-2.062 5.17-.367.151-.769.246-1.15.158-.38-.087-.723-.332-.962-.653-.239-.32-.35-.71-.35-1.102a.75.75 0 00-.75-.75.75.75 0 00-.75.75c0 .72.296 1.39.782 1.916.486.526 1.144.86 1.868.995.724.136 1.49.063 2.18-.216.69-.279 1.27-.77 1.71-1.38.44-.61.68-1.31.68-2.07 0-.76-.24-1.46-.68-2.07-.44-.61-.99-1.1-1.71-1.38-.69-.279-1.456-.352-2.18-.216-.381.088-.783.007-1.15.158z" clipRule="evenodd"></path></svg>
             </button>
           </div>
@@ -184,13 +230,14 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
               src={userData.featuredMovie.poster || userData.featuredMovie.thumbnail}
               alt={userData.featuredMovie.title}
               className="absolute inset-0 w-full h-full object-cover"
+              onError={(e) => { e.currentTarget.src = 'https://placehold.co/1200x600/000/fff?text=No+Image'; }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-80"></div>
             <div className="absolute bottom-0 left-0 p-6 text-white z-10">
               <h3 className="text-4xl font-bold mb-2">{userData.featuredMovie.title}</h3>
               <p className="text-lg mb-2">{userData.featuredMovie.rating} / 10</p>
               <p className="text-sm max-w-md mb-4">{userData.featuredMovie.description}</p>
-              <button className="px-6 py-3 bg-[#09f] text-white rounded-lg font-semibold hover:bg-opacity-90 transition duration-200 flex items-center">
+              <button onClick={() => console.log("Watch movie clicked:", userData.featuredMovie?.title)} className="px-6 py-3 bg-[#09f] text-white rounded-lg font-semibold hover:bg-opacity-90 transition duration-200 flex items-center">
                 <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
                 تماشای فیلم
               </button>
@@ -205,12 +252,13 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
               <section>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-2xl font-bold text-gray-200">ترندینگ</h3>
-                  <a href="#" className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
+                  <a href="javascript:void(0)" onClick={() => handleViewAllClick('Trending')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {userData.trending.map((item) => (
                     <div key={item.id} className="relative bg-gray-800 rounded-lg overflow-hidden shadow-lg flex items-center transform transition-transform hover:scale-[1.02]">
-                      <img src={item.thumbnail} alt={item.title} className="w-32 h-24 object-cover flex-shrink-0" />
+                      <img src={item.thumbnail} alt={item.title} className="w-32 h-24 object-cover flex-shrink-0" 
+                           onError={(e) => { e.currentTarget.src = 'https://placehold.co/300x180/000/fff?text=No+Image'; }}/>
                       <div className="p-3 flex-grow">
                         <h4 className="text-white font-semibold text-base truncate">{item.title}</h4>
                         <p className="text-gray-400 text-xs mt-1">{item.genre} | {item.year}</p>
@@ -232,7 +280,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
               <section>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-2xl font-bold text-gray-200">محبوب</h3>
-                  <a href="#" className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
+                  <a href="javascript:void(0)" onClick={() => handleViewAllClick('Popular')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {userData.popular.map(renderMovieCard)}
@@ -248,7 +296,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
               <section>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-2xl font-bold text-gray-200">ادامه تماشا</h3>
-                  <a href="#" className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
+                  <a href="javascript:void(0)" onClick={() => handleViewAllClick('Continue Watching')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
                 </div>
                 <div className="space-y-4">
                   {userData.continueWatching.map(renderMovieCard)}
@@ -261,7 +309,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout }) 
               <section>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-2xl font-bold text-gray-200">سریال‌های اخیراً به‌روز شده</h3>
-                  <a href="#" className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
+                  <a href="javascript:void(0)" onClick={() => handleViewAllClick('Recently Updated Series')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
                 </div>
                 <div className="space-y-3">
                   {userData.recentlyUpdated.map(renderRecentlyUpdatedItem)}

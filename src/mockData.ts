@@ -1,4 +1,21 @@
-// src/mockData.ts
+import havocPoster from "./assets/ubP2OsF3GlfqYPvXyLw9d78djGX.webp"
+import bigBangTheory from "./assets/ooBGRQBdbGzBxAVfExiO8r7kloA.webp"
+import aWorkingMan from "./assets/6FRFIogh3zFnVWn7Z6zcYnIbRcX.webp"
+import theLastOfUs from "./assets/theLastOfUswebp.webp"
+import deadpoolAndWolverine from "./assets/deadpool.webp"
+import zombieDetective from "./assets/zombie detective.webp"
+import theWitcher from "./assets/the witcher.webp"
+import dark from "./assets/dark.webp"
+import strangerThings from "./assets/stranger things.webp"
+import theMandalorian from "./assets/mandalorian.webp"
+import howToTrainYourDragon from "./assets/how to train your dragon.webp"
+import theNakedGun from "./assets/the naked gun.webp"
+import wallE from "./assets/wall-e.webp"
+import fall from "./assets/fall.webp"
+import theLastSparkOfHope from "./assets/the last spark of hope.webp"
+import berlin from "./assets/berlin.webp"
+import prisonBreak from "./assets/prison break.webp"
+import tedLasso from "./assets/ted lasso.webp"
 
 export interface MovieOrSeries {
   id: string;
@@ -34,37 +51,37 @@ const getPlaceholderImage = (width: number, height: number, text: string, bgColo
 export const mockUserDashboardData: UserDashboardData[] = [
   {
     userId: "user123",
-    userName: "علی",
+    userName: "Jude",
     email: "ali@example.com",
     
     featuredMovie: {
       id: "f101",
       title: "Havoc 2025",
-      thumbnail: getPlaceholderImage(600, 350, "Havoc 2025", "272257", "09f"), // Example for featured image
-      poster: getPlaceholderImage(1200, 600, "Havoc 2025 Featured", "272257", "09f"), // Larger image for main display
-      genre: "اکشن",
+      thumbnail: havocPoster, // Example for featured image
+      poster: havocPoster, // Larger image for main display
+      genre: "Action",
       year: 2025,
       rating: 6.1,
-      description: "یک فیلم اکشن هیجان‌انگیز در آینده‌ای نزدیک که نبردی برای بقا را به تصویر می‌کشد."
+      description: "An action-packed thriller set in the near future depicting a battle for survival."
     },
 
     continueWatching: [
       {
         id: "cw101",
-        title: "تئوری بیگ بنگ",
-        thumbnail: getPlaceholderImage(200, 120, "Big Bang Theory", "09f", "272257"),
+        title: "Big Bang Theory",
+        thumbnail: bigBangTheory,
         progress: 85,
-        genre: "کمدی",
+        genre: "Comedy",
         year: 2007,
         rating: 8.2,
         episode: "S02 EP14"
       },
       {
         id: "cw102",
-        title: "کارآگاه زامبی",
-        thumbnail: getPlaceholderImage(200, 120, "Zombie Detective", "09f", "272257"),
+        title: "Zombie Detective",
+        thumbnail: zombieDetective,
         progress: 50,
-        genre: "کمدی",
+        genre: "Comedy",
         year: 2020,
         rating: 7.4,
         episode: "S01 EP04"
@@ -73,17 +90,17 @@ export const mockUserDashboardData: UserDashboardData[] = [
     myWatchlist: [
       {
         id: "wl101",
-        title: "ویچر",
-        thumbnail: getPlaceholderImage(300, 180, "The Witcher", "09f", "272257"),
-        genre: "فانتزی",
+        title: "The Witcher",
+        thumbnail: theWitcher,
+        genre: "Fantasy",
         year: 2019,
         rating: 8.2
       },
       {
         id: "wl102",
-        title: "دارک",
-        thumbnail: getPlaceholderImage(300, 180, "Dark", "09f", "272257"),
-        genre: "علمی-تخیلی",
+        title: "Dark",
+        thumbnail: dark,
+        genre: "Sci-Fi",
         year: 2017,
         rating: 8.8
       },
@@ -91,17 +108,17 @@ export const mockUserDashboardData: UserDashboardData[] = [
     recommendations: [
       {
         id: "rec101",
-        title: "چیزهای عجیب",
-        thumbnail: getPlaceholderImage(300, 180, "Stranger Things", "09f", "272257"),
-        genre: "علمی-تخیلی",
+        title: "Stranger Things",
+        thumbnail: strangerThings,
+        genre: "Sci-Fi",
         year: 2016,
         rating: 8.7
       },
       {
         id: "rec102",
-        title: "مندلورین",
-        thumbnail: getPlaceholderImage(300, 180, "The Mandalorian", "09f", "272257"),
-        genre: "علمی-تخیلی",
+        title: "The Mandalorian",
+        thumbnail: theMandalorian,
+        genre: "Sci-Fi",
         year: 2019,
         rating: 8.7
       },
@@ -109,26 +126,26 @@ export const mockUserDashboardData: UserDashboardData[] = [
     trending: [
       {
         id: "tr101",
-        title: "Warfare 2025",
-        thumbnail: getPlaceholderImage(300, 180, "Warfare 2025", "09f", "272257"),
-        genre: "جنگی",
+        title: "How to train your dragon",
+        thumbnail: howToTrainYourDragon,
+        genre: "Fantasy",
         year: 2025,
-        rating: 7.4
+        rating: 7.9
       },
       {
         id: "tr102",
         title: "A Working Man 2025",
-        thumbnail: getPlaceholderImage(300, 180, "Working Man 2025", "09f", "272257"),
-        genre: "درام",
+        thumbnail: aWorkingMan,
+        genre: "Drama",
         year: 2025,
         rating: 5.7
       },
       {
         id: "tr103",
-        title: "فیلم ترند ۳",
-        thumbnail: getPlaceholderImage(300, 180, "Trending Film 3", "09f", "272257"),
-        genre: "کمدی",
-        year: 2024,
+        title: "The naked gun",
+        thumbnail: theNakedGun,
+        genre: "Comedy",
+        year: 2025,
         rating: 7.0
       },
     ],
@@ -136,32 +153,32 @@ export const mockUserDashboardData: UserDashboardData[] = [
       {
         id: "pop101",
         title: "WALL-E 2008",
-        thumbnail: getPlaceholderImage(300, 180, "WALL-E", "09f", "272257"),
-        genre: "انیمیشن",
+        thumbnail: wallE,
+        genre: "Animation",
         year: 2008,
         rating: 8.4
       },
       {
         id: "pop102",
         title: "Deadpool & Wolverine 2024",
-        thumbnail: getPlaceholderImage(300, 180, "Deadpool & Wolverine", "09f", "272257"),
-        genre: "اکشن",
+        thumbnail: deadpoolAndWolverine,
+        genre: "Action",
         year: 2024,
         rating: 8.0
       },
       {
         id: "pop103",
-        title: "Breath of Life 2023",
-        thumbnail: getPlaceholderImage(300, 180, "Breath of Life", "09f", "272257"),
-        genre: "درام",
-        year: 2023,
-        rating: 7.5
+        title: "Fall 2022",
+        thumbnail: fall,
+        genre: "Thriller",
+        year: 2022,
+        rating: 6.4
       },
       {
         id: "pop104",
         title: "The Last Spark of Hope 2022",
-        thumbnail: getPlaceholderImage(300, 180, "Last Spark of Hope", "09f", "272257"),
-        genre: "علمی-تخیلی",
+        thumbnail: theLastSparkOfHope,
+        genre: "Sci-Fi",
         year: 2022,
         rating: 6.8
       },
@@ -169,9 +186,9 @@ export const mockUserDashboardData: UserDashboardData[] = [
     recentlyUpdated: [
       {
         id: "ru101",
-        title: "آخرین بازمانده از ما",
-        thumbnail: getPlaceholderImage(80, 80, "The Last of Us", "09f", "272257"),
-        genre: "درام",
+        title: "The Last of Us",
+        thumbnail: theLastOfUs,
+        genre: "Drama",
         year: 2023,
         rating: 8.7,
         season: "S02",
@@ -179,9 +196,9 @@ export const mockUserDashboardData: UserDashboardData[] = [
       },
       {
         id: "ru102",
-        title: "برلین",
-        thumbnail: getPlaceholderImage(80, 80, "Berlin", "09f", "272257"),
-        genre: "جنایی",
+        title: "Berlin",
+        thumbnail: berlin,
+        genre: "Crime",
         year: 2023,
         rating: 7.0,
         season: "S02",
@@ -189,9 +206,9 @@ export const mockUserDashboardData: UserDashboardData[] = [
       },
       {
         id: "ru103",
-        title: "فرار از زندان",
-        thumbnail: getPlaceholderImage(80, 80, "Prison Break", "09f", "272257"),
-        genre: "اکشن",
+        title: "Prison Break",
+        thumbnail: prisonBreak,
+        genre: "Action",
         year: 2005,
         rating: 6.0,
         season: "S02",
@@ -199,9 +216,9 @@ export const mockUserDashboardData: UserDashboardData[] = [
       },
       {
         id: "ru104",
-        title: "تد لاسو",
-        thumbnail: getPlaceholderImage(80, 80, "Ted Lasso", "09f", "272257"),
-        genre: "کمدی",
+        title: "Ted Lasso",
+        thumbnail: tedLasso,
+        genre: "Comedy",
         year: 2020,
         rating: 8.8,
         season: "S03",
