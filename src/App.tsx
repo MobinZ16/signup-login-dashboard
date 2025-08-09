@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import AuthForm from "./components/AuthForm";
 import Dashboard from "./components/Dashboard";
-import MoviesPage from "./components/MoviesPage"; // Import MoviesPage
-import SeriesPage from "./components/SeriesPage"; // Import SeriesPage
+import MoviesPage from "./components/MoviesPage"; 
+import SeriesPage from "./components/SeriesPage"; 
+import DetailPage from "./components/DetailPage"; // Import DetailPage
 import Pattern from "./components/Pattern";
 import type { PersonalInfo } from "./type";
 import axios from "axios";
@@ -77,12 +78,12 @@ const App: React.FC = () => {
   };
 
   return (
-    <Router> {/* Wrap the entire application with Router */}
-      <div className="relative min-h-screen flex flex-col justify-center items-center p-4">
+    <Router>
+      <div className="relative min-h-screen flex flex-col justify-center items-center p-4"> 
         <Pattern /> 
 
         <div className="z-10 w-full h-full flex justify-center items-center">
-          <Routes> {/* Define routes */}
+          <Routes>
             <Route 
               path="/" 
               element={
@@ -105,24 +106,29 @@ const App: React.FC = () => {
                 isLoggedIn ? (
                   <Dashboard userEmail={loggedInUserEmail} userName={displayUserName} onLogout={handleLogout} />
                 ) : (
-                  <Navigate to="/" /> // Redirect to login if not logged in
+                  <Navigate to="/" /> 
                 )
               } 
             />
             <Route 
               path="/movies" 
               element={
-                isLoggedIn ? <MoviesPage /> : <Navigate to="/" /> // Protect this route
+                isLoggedIn ? <MoviesPage /> : <Navigate to="/" /> 
               } 
             />
             <Route 
               path="/series" 
               element={
-                isLoggedIn ? <SeriesPage /> : <Navigate to="/" /> // Protect this route
+                isLoggedIn ? <SeriesPage /> : <Navigate to="/" /> 
               } 
             />
-            {/* Add more routes here for favorites, help, about, etc. if needed */}
-            {/* Fallback route for unmatched paths */}
+            {/* New route for content detail pages */}
+            <Route 
+              path="/content/:id" // Using a generic ID for now
+              element={
+                isLoggedIn ? <DetailPage /> : <Navigate to="/" /> 
+              } 
+            />
             <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/"} />} />
           </Routes>
         </div>

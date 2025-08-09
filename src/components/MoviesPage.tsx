@@ -1,5 +1,4 @@
 import React from 'react';
-// مسیردهی اصلاح شد: اگر MoviesPage.tsx در یک ساب‌فولدر مثل 'src/components/' است.
 import { type MovieOrSeries, mockUserDashboardData } from '../mockData'; 
 import { useNavigate } from 'react-router-dom';
 
@@ -8,7 +7,6 @@ const MoviesPage: React.FC = () => {
 
   const allMovies: MovieOrSeries[] = [];
   mockUserDashboardData.forEach(userData => {
-    // Collect unique movies from trending, popular, and featuredMovie (if not a series)
     userData.trending.forEach(item => {
       if (!allMovies.some(movie => movie.id === item.id)) allMovies.push(item);
     });
@@ -16,7 +14,6 @@ const MoviesPage: React.FC = () => {
       if (!allMovies.some(movie => movie.id === item.id)) allMovies.push(item);
     });
     userData.myWatchlist.forEach(item => {
-        // مطمئن می‌شویم که فقط فیلم‌ها (و نه سریال‌هایی که قسمت دارند) اضافه شوند.
         if (!item.episode && !allMovies.some(movie => movie.id === item.id)) allMovies.push(item);
     });
     if (userData.featuredMovie && !userData.featuredMovie.episode && !allMovies.some(movie => movie.id === userData.featuredMovie?.id)) {
@@ -29,13 +26,13 @@ const MoviesPage: React.FC = () => {
     <div
       key={item.id}
       className="relative flex flex-col bg-gray-800 rounded-lg overflow-hidden shadow-lg transform transition-transform hover:scale-105 cursor-pointer"
-      onClick={() => console.log(`Clicked on movie: ${item.title}`)} // شبیه‌سازی هدایت به جزئیات فیلم
+      onClick={() => navigate(`/content/${item.id}`)} // Changed to navigate to detail page
     >
       <img
         src={item.thumbnail}
         alt={item.title}
-        className="w-full h-60 object-cover" // ارتفاع بزرگتر برای جذابیت بصری بهتر
-        onError={(e) => { e.currentTarget.src = 'https://placehold.co/300x450/000/fff?text=No+Image'; }} // تصویر جایگزین در صورت عدم بارگذاری
+        className="w-full h-60 object-cover"
+        onError={(e) => { e.currentTarget.src = 'https://placehold.co/300x450/000/fff?text=No+Image'; }}
       />
       <div className="p-3 flex-grow">
         <h3 className="text-white font-semibold text-lg truncate">{item.title}</h3>
@@ -59,12 +56,12 @@ const MoviesPage: React.FC = () => {
   return (
     <div className="w-full p-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm text-white overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-extrabold text-[#09f]">Movies</h2>
+        <h2 className="text-3xl font-extrabold text-[#09f]">فیلم‌ها</h2>
         <button
           onClick={() => navigate('/dashboard')}
           className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition duration-200 font-semibold"
         >
-          Back to Dashboard
+          بازگشت به داشبورد
         </button>
       </div>
 
