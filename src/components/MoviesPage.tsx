@@ -59,12 +59,12 @@ const MoviesPage: React.FC = () => {
   return (
     <div className="w-full p-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm text-white overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-extrabold text-[#09f]">فیلم‌ها</h2>
+        <h2 className="text-3xl font-extrabold text-[#09f]">Movies</h2>
         <button
           onClick={() => navigate('/dashboard')}
           className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition duration-200 font-semibold"
         >
-          بازگشت به داشبورد
+          Back to Dashboard
         </button>
       </div>
 
