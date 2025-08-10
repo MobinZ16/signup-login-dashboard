@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import AuthForm from "./components/AuthForm";
 import Dashboard from "./components/Dashboard";
@@ -26,7 +26,28 @@ const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false); 
   const [loggedInUserEmail, setLoggedInUserEmail] = useState(''); 
   const [displayUserName, setDisplayUserName] = useState(''); 
-  const [loggedInUserId, setLoggedInUserId] = useState<number | null>(null); // New state for user ID
+  const [loggedInUserId, setLoggedInUserId] = useState<number | null>(null);
+
+  // useEffect to load user session from localStorage on component mount
+  useEffect(() => {
+    try {
+      const storedLoggedIn = localStorage.getItem('isLoggedIn');
+      const storedUserEmail = localStorage.getItem('loggedInUserEmail');
+      const storedUserName = localStorage.getItem('displayUserName');
+      const storedUserId = localStorage.getItem('loggedInUserId');
+
+      if (storedLoggedIn === 'true' && storedUserEmail && storedUserName && storedUserId) {
+        setIsLoggedIn(true);
+        setLoggedInUserEmail(storedUserEmail);
+        setDisplayUserName(storedUserName);
+        setLoggedInUserId(parseInt(storedUserId, 10)); // Convert back to number
+      }
+    } catch (e) {
+      console.error("Failed to load session from localStorage", e);
+      // Fallback: Clear session if there's an error reading localStorage
+      handleLogout(); 
+    }
+  }, []); // Run only once on mount
 
   const handleUpdate = (info: PersonalInfo) => {
     setPersonalInfo(info);
@@ -50,9 +71,19 @@ const App: React.FC = () => {
       
       if (isLoginForm && response.status === 200) {
         setIsLoggedIn(true);
-        setLoggedInUserEmail(personalInfo.email); 
-        setDisplayUserName(response.data.user?.username || personalInfo.email.split('@')[0] || 'کاربر'); 
-        setLoggedInUserId(response.data.user?.id || null); // Set user ID from login response
+        const userEmail = personalInfo.email;
+        const userName = response.data.user?.username || personalInfo.email.split('@')[0] || 'کاربر';
+        const userId = response.data.user?.id;
+
+        setLoggedInUserEmail(userEmail); 
+        setDisplayUserName(userName); 
+        setLoggedInUserId(userId); 
+
+        // Store session data in localStorage
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('loggedInUserEmail', userEmail);
+        localStorage.setItem('displayUserName', userName);
+        localStorage.setItem('loggedInUserId', String(userId)); // Store as string
       } else if (!isLoginForm && response.status === 201) {
         setIsLogin(true);
       }
@@ -65,11 +96,17 @@ const App: React.FC = () => {
     setIsLoggedIn(false);
     setLoggedInUserEmail(''); 
     setDisplayUserName('');
-    setLoggedInUserId(null); // Clear user ID on logout
+    setLoggedInUserId(null); 
     setIsLogin(true);
     setPersonalInfo(initialData);
     setMessage('');
     setError('');
+
+    // Clear session data from localStorage
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('loggedInUserEmail');
+    localStorage.removeItem('displayUserName');
+    localStorage.removeItem('loggedInUserId');
   };
 
   const toggleForm = () => {
@@ -110,7 +147,7 @@ const App: React.FC = () => {
                     userEmail={loggedInUserEmail} 
                     userName={displayUserName} 
                     onLogout={handleLogout} 
-                    loggedInUserId={loggedInUserId} // Pass userId
+                    loggedInUserId={loggedInUserId} 
                   />
                 ) : (
                   <Navigate to="/" /> 
@@ -132,7 +169,7 @@ const App: React.FC = () => {
             <Route 
               path="/content/:id" 
               element={
-                isLoggedIn ? <DetailPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> // Pass userId
+                isLoggedIn ? <DetailPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
               } 
             />
             <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/"} />} />
@@ -144,4 +181,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-

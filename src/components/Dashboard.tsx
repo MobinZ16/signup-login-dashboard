@@ -7,7 +7,7 @@ interface DashboardProps {
   userEmail: string;
   userName: string;
   onLogout: () => void;
-  loggedInUserId: number | null; 
+  loggedInUserId: number | null;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, loggedInUserId }) => {
@@ -17,14 +17,17 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
   const [trendingContent, setTrendingContent] = useState<MovieOrSeries[]>([]);
   const [popularMovies, setPopularMovies] = useState<MovieOrSeries[]>([]);
   const [recentlyUpdatedSeries, setRecentlyUpdatedSeries] = useState<MovieOrSeries[]>([]);
-  
   const [myWatchlist, setMyWatchlist] = useState<MovieOrSeries[]>([]);
+  const [continueWatching, setContinueWatching] = useState<MovieOrSeries[]>([]);
 
-  const [continueWatching, setContinueWatching] = useState<MovieOrSeries[]>([]); 
+  // New states for search functionality
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<MovieOrSeries[]>([]);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
 
   const [isDarkMode, setIsDarkMode] = React.useState(() => {
     if (typeof window !== 'undefined') {
@@ -55,33 +58,30 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
         setLoading(true);
         setError(null);
 
-        // Fetch Trending Content
         const trendingRes = await axios.get('http://127.0.0.1:5000/api/tmdb/trending_all');
         const mappedTrending: MovieOrSeries[] = trendingRes.data.map((item: any) => ({
           id: String(item.id),
           title: item.title || item.name || 'N/A',
-          thumbnail: getTmdbImageUrl(item.poster_path, 'w300', 300, 180), // Use getTmdbImageUrl
-          genre: mapGenreIdsToNames(item.genre_ids, item.media_type), // Map genre IDs
+          thumbnail: getTmdbImageUrl(item.poster_path, 'w300', 300, 180),
+          genre: mapGenreIdsToNames(item.genre_ids, item.media_type),
           year: new Date(item.release_date || item.first_air_date || '0').getFullYear() || 0,
           rating: item.vote_average ? parseFloat(item.vote_average.toFixed(1)) : 0,
           media_type: item.media_type,
         }));
-        setTrendingContent(mappedTrending.filter(item => item.year > 0)); 
+        setTrendingContent(mappedTrending.filter(item => item.year > 0));
 
-        // Fetch Popular Movies
         const popularRes = await axios.get('http://127.0.0.1:5000/api/tmdb/popular_movies');
         const mappedPopular: MovieOrSeries[] = popularRes.data.map((item: any) => ({
           id: String(item.id),
           title: item.title || 'N/A',
-          thumbnail: getTmdbImageUrl(item.poster_path, 'w300', 300, 180), // Use getTmdbImageUrl
-          genre: mapGenreIdsToNames(item.genre_ids, 'movie'), // Map genre IDs
+          thumbnail: getTmdbImageUrl(item.poster_path, 'w300', 300, 180),
+          genre: mapGenreIdsToNames(item.genre_ids, 'movie'),
           year: new Date(item.release_date || '0').getFullYear() || 0,
           rating: item.vote_average ? parseFloat(item.vote_average.toFixed(1)) : 0,
           media_type: 'movie',
         }));
         setPopularMovies(mappedPopular.filter(item => item.year > 0));
 
-        // Fetch Featured Movie 
         if (mappedTrending.length > 0) {
             const featured = mappedTrending[0];
             const featuredDetailsRes = await axios.get(`http://127.0.0.1:5000/api/tmdb/details/${featured.id}?type=${featured.media_type}`);
@@ -89,9 +89,9 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
             setFeaturedMovie({
                 id: String(featuredDetails.id),
                 title: featuredDetails.title || featuredDetails.name || 'N/A',
-                thumbnail: getTmdbImageUrl(featuredDetails.poster_path, 'w500', 300, 450), // Use getTmdbImageUrl
-                poster: getTmdbImageUrl(featuredDetails.backdrop_path, 'original', 1200, 600), // Use getTmdbImageUrl
-                genre: mapGenreIdsToNames(featuredDetails.genres?.map((g: any) => g.id), featured.media_type), // Map genre IDs
+                thumbnail: getTmdbImageUrl(featuredDetails.poster_path, 'w500', 300, 450),
+                poster: getTmdbImageUrl(featuredDetails.backdrop_path, 'original', 1200, 600),
+                genre: mapGenreIdsToNames(featuredDetails.genres?.map((g: any) => g.id), featured.media_type),
                 year: new Date(featuredDetails.release_date || featuredDetails.first_air_date || '0').getFullYear() || 0,
                 rating: featuredDetails.vote_average ? parseFloat(featuredDetails.vote_average.toFixed(1)) : 0,
                 description: featuredDetails.overview || 'خلاصه داستانی موجود نیست.',
@@ -101,13 +101,12 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
             });
         }
         
-        // Fetch Watchlist items for the logged-in user
         if (loggedInUserId) {
           const watchlistRes = await axios.get(`http://127.0.0.1:5000/api/watchlist/${loggedInUserId}`);
           const mappedWatchlist: MovieOrSeries[] = watchlistRes.data.map((item: any) => ({
             id: item.content_id,
             title: item.title,
-            thumbnail: item.thumbnail_url, // This should already be a full URL from when it was added
+            thumbnail: item.thumbnail_url,
             genre: item.content_type === 'movie' ? 'فیلم' : 'سریال', 
             year: 0, 
             rating: 0, 
@@ -118,7 +117,6 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
           setMyWatchlist([]); 
         }
 
-        // Placeholder continue watching (these placeholders still use local image paths initially)
         setContinueWatching([
             { id: "cw101", title: "تئوری بیگ بنگ", thumbnail: getPlaceholderImage(200, 120, "Big Bang Theory", "09f", "272257"), progress: 85, genre: "کمدی", year: 2007, rating: 8.2, episode: "S02 EP14", season: "فصل ۲", media_type: 'tv' },
             { id: "cw102", title: "کارآگاه زامبی", thumbnail: getPlaceholderImage(200, 120, "Zombie Detective", "09f", "272257"), progress: 50, genre: "کمدی", year: 2020, rating: 7.4, episode: "S01 EP04", media_type: 'tv' },
@@ -154,6 +152,65 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
     navigate(`/content/${id}?type=${type}`);
   };
 
+  // Handler for search input change
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    // Optionally, clear search results if query is empty
+    if (e.target.value === '') {
+      setSearchResults([]);
+      setIsSearching(false);
+      setSearchError(null);
+    }
+  };
+
+  // Handler for search submission
+  const handleSearchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); // Prevent default form submission
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      setSearchError(null);
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchError(null);
+    try {
+      const response = await axios.get(`http://127.0.0.1:5000/api/tmdb/search?query=${encodeURIComponent(searchQuery.trim())}`);
+      const mappedResults: MovieOrSeries[] = response.data.map((item: any) => {
+        const year = new Date(item.release_date || item.first_air_date || '0').getFullYear();
+        let mediaType: 'movie' | 'tv' | undefined = item.media_type;
+
+        // Defensive check: if media_type is missing, try to infer it based on date fields
+        if (!mediaType) {
+          if (item.release_date) {
+            mediaType = 'movie';
+          } else if (item.first_air_date) {
+            mediaType = 'tv';
+          }
+        }
+
+        return {
+          id: String(item.id),
+          title: item.title || item.name || 'N/A',
+          thumbnail: getTmdbImageUrl(item.poster_path, 'w300', 300, 450),
+          genre: mapGenreIdsToNames(item.genre_ids, mediaType),
+          year: !isNaN(year) && year > 0 ? year : 0, // Ensure year is a valid number > 0
+          rating: item.vote_average ? parseFloat(item.vote_average.toFixed(1)) : 0,
+          media_type: mediaType,
+        };
+      });
+      // Filter out items with year 0 or invalid media_type
+      setSearchResults(mappedResults.filter(item => item.year > 0 && (item.media_type === 'movie' || item.media_type === 'tv'))); 
+    } catch (err: any) {
+      console.error("Search failed:", err);
+      setSearchError("خطا در جستجو. لطفاً دوباره تلاش کنید.");
+      setSearchResults([]); // Clear results on error
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const renderMovieCard = (item: MovieOrSeries) => (
     <div
       key={item.id}
@@ -161,10 +218,10 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
       onClick={() => handleContentClick(item.id, item.media_type)}
     >
       <img
-        src={item.thumbnail} // Use item.thumbnail which is already a full TMDB URL
+        src={item.thumbnail}
         alt={item.title}
         className="w-full h-32 object-cover"
-        onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 180, "خطای عکس"); }} // Fallback
+        onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 180, "خطای عکس"); }}
       />
       {item.progress !== undefined && (
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-600">
@@ -213,6 +270,45 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
       )}
     </div>
   );
+
+  if (loading) {
+    return (
+      <div className="text-white text-center p-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm flex items-center justify-center min-h-[500px]">
+        <h2 className="text-3xl font-extrabold text-[#09f] mb-4">در حال بارگذاری داشبورد...</h2>
+        <p className="text-lg">لطفاً صبر کنید.</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-red-400 text-center p-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm flex items-center justify-center min-h-[500px]">
+        <h2 className="text-3xl font-extrabold text-red-500 mb-4">خطا در بارگذاری</h2>
+        <p className="text-lg">{error}</p>
+        <button
+          onClick={onLogout}
+          className="mt-6 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-semibold"
+        >
+          بازگشت به صفحه ورود
+        </button>
+      </div>
+    );
+  }
+
+  if (!userEmail) {
+    return (
+      <div className="text-white text-center p-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm">
+        <h2 className="text-3xl font-extrabold text-[#09f] mb-4">داشبورد</h2>
+        <p className="text-lg">اطلاعات کاربری یافت نشد. لطفاً دوباره وارد شوید.</p>
+        <button
+          onClick={onLogout}
+          className="mt-6 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200"
+        >
+          خروج
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex w-full h-full bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm overflow-hidden">
@@ -288,14 +384,18 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
       <main className="flex-1 p-8 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
         {/* Header */}
         <header className="flex justify-between items-center mb-8">
-          <div className="relative w-1/3">
+          <form onSubmit={handleSearchSubmit} className="relative w-1/3">
             <input
               type="text"
               placeholder="جستجوی فیلم‌ها..."
               className="w-full px-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-[#09f] focus:border-[#09f]"
+              value={searchQuery}
+              onChange={handleSearchInputChange}
             />
-            <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"></path></svg>
-          </div>
+            <button type="submit" className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-[#09f] transition duration-200">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"></path></svg>
+            </button>
+          </form>
           <div className="flex items-center space-x-4">
             <div className="text-gray-300">
               <span className="font-semibold">سلام {userName}</span>
@@ -313,125 +413,154 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
           </div>
         </header>
 
-        {/* Featured Movie/Series */}
-        {featuredMovie && (
-          <section className="relative w-full h-96 rounded-lg overflow-hidden mb-8 shadow-xl">
-            <img
-              src={featuredMovie.poster || featuredMovie.thumbnail}
-              alt={featuredMovie.title}
-              className="absolute inset-0 w-full h-full object-cover"
-              onError={(e) => { e.currentTarget.src = getPlaceholderImage(1200,600, "خطای عکس"); }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-80"></div>
-            <div className="absolute bottom-0 left-0 p-6 text-white z-10">
-              <h3 className="text-4xl font-bold mb-2">{featuredMovie.title}</h3>
-              <p className="text-lg mb-2">{featuredMovie.rating} / 10</p>
-              <p className="text-sm max-w-md mb-4">{featuredMovie.description}</p>
-              <button onClick={() => handleContentClick(featuredMovie.id, featuredMovie.media_type)} className="px-6 py-3 bg-[#09f] text-white rounded-lg font-semibold hover:bg-opacity-90 transition duration-200 flex items-center">
-                <svg className="w-5 h-5 mr-2 transform rotate-180" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
-                تماشای فیلم
-              </button>
+        {/* Search Results Section - NEW */}
+        {isSearching ? (
+          <div className="text-white text-center py-8">
+            <h3 className="text-2xl font-bold text-[#09f]">در حال جستجو...</h3>
+          </div>
+        ) : searchError ? (
+          <div className="text-red-400 text-center py-8">
+            <h3 className="text-2xl font-bold text-red-500">خطا در جستجو</h3>
+            <p className="text-lg">{searchError}</p>
+          </div>
+        ) : searchQuery.trim() !== '' && searchResults.length > 0 ? (
+          <section className="mb-8">
+            <h3 className="text-2xl font-bold text-gray-200 mb-4">نتایج جستجو برای "{searchQuery}"</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+              {searchResults.map(renderMovieCard)}
             </div>
           </section>
-        )}
+        ) : searchQuery.trim() !== '' && searchResults.length === 0 && !isSearching ? (
+          <div className="text-gray-400 text-center py-8">
+            <h3 className="text-2xl font-bold">نتیجه‌ای برای "{searchQuery}" یافت نشد.</h3>
+            <p>لطفاً کلمه کلیدی دیگری را امتحان کنید.</p>
+          </div>
+        ) : null}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            {/* Trending Section */}
-            {trendingContent.length > 0 && (
-              <section>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-2xl font-bold text-gray-200">ترندینگ</h3>
-                  <a href="javascript:void(0)" onClick={() => handleViewAllClick('Trending')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
+        {/* Conditional Rendering of Dashboard Sections */}
+        {searchQuery.trim() === '' && ( // Only show dashboard sections if not searching
+          <>
+            {/* Featured Movie/Series */}
+            {featuredMovie && (
+              <section className="relative w-full h-96 rounded-lg overflow-hidden mb-8 shadow-xl">
+                <img
+                  src={featuredMovie.poster || featuredMovie.thumbnail}
+                  alt={featuredMovie.title}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={(e) => { e.currentTarget.src = getPlaceholderImage(1200,600, "خطای عکس"); }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-80"></div>
+                <div className="absolute bottom-0 left-0 p-6 text-white z-10">
+                  <h3 className="text-4xl font-bold mb-2">{featuredMovie.title}</h3>
+                  <p className="text-lg mb-2">{featuredMovie.rating} / 10</p>
+                  <p className="text-sm max-w-md mb-4">{featuredMovie.description}</p>
+                  <button onClick={() => handleContentClick(featuredMovie.id, featuredMovie.media_type)} className="px-6 py-3 bg-[#09f] text-white rounded-lg font-semibold hover:bg-opacity-90 transition duration-200 flex items-center">
+                    <svg className="w-5 h-5 mr-2 transform rotate-180" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
+                    تماشای فیلم
+                  </button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {trendingContent.map((item) => (
-                    <div key={item.id} className="relative bg-gray-800 rounded-lg overflow-hidden shadow-lg flex items-center transform transition-transform hover:scale-[1.02] cursor-pointer"
-                         onClick={() => handleContentClick(item.id, item.media_type)}>
-                      <img src={item.thumbnail} alt={item.title} className="w-32 h-24 object-cover flex-shrink-0" 
-                           onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 180, "خطای عکس"); }}/>
-                      <div className="p-3 flex-grow">
-                        <h4 className="text-white font-semibold text-base truncate">{item.title}</h4>
-                        <p className="text-gray-400 text-xs mt-1">{item.genre} | {item.year}</p>
-                        {item.rating && (
-                          <div className="flex items-center text-yellow-400 text-sm mt-1">
-                            <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.538 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.783.57-1.838-.197-1.538-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.92 8.72c-.783-.57-.381-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z"></path></svg>
-                            {item.rating} / 10
+              </section>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-8">
+                {/* Trending Section */}
+                {trendingContent.length > 0 && (
+                  <section>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-2xl font-bold text-gray-200">ترندینگ</h3>
+                      <a href="javascript:void(0)" onClick={() => handleViewAllClick('Trending')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {trendingContent.map((item) => (
+                        <div key={item.id} className="relative bg-gray-800 rounded-lg overflow-hidden shadow-lg flex items-center transform transition-transform hover:scale-[1.02] cursor-pointer"
+                             onClick={() => handleContentClick(item.id, item.media_type)}>
+                          <img src={item.thumbnail} alt={item.title} className="w-32 h-24 object-cover flex-shrink-0"
+                               onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 180, "خطای عکس"); }}/>
+                          <div className="p-3 flex-grow">
+                            <h4 className="text-white font-semibold text-base truncate">{item.title}</h4>
+                            <p className="text-gray-400 text-xs mt-1">{item.genre} | {item.year}</p>
+                            {item.rating && (
+                              <div className="flex items-center text-yellow-400 text-sm mt-1">
+                                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.538 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.783.57-1.838-.197-1.538-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.92 8.72c-.783-.57-.381-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z"></path></svg>
+                                {item.rating} / 10
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </section>
-            )}
+                  </section>
+                )}
 
-            {/* Popular Section (similar to Trending) */}
-            {popularMovies.length > 0 && (
-              <section>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-2xl font-bold text-gray-200">محبوب</h3>
-                  <a href="javascript:void(0)" onClick={() => handleViewAllClick('Popular')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {popularMovies.map(renderMovieCard)}
-                </div>
-              </section>
-            )}
-
-            {/* My Watchlist Section - NEW */}
-            {myWatchlist.length > 0 && (
-              <section>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-2xl font-bold text-gray-200">لیست تماشای من</h3>
-                  <a href="javascript:void(0)" onClick={() => handleViewAllClick('My Watchlist')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {myWatchlist.map((item) => (
-                    <div key={item.id} className="relative flex-shrink-0 w-48 bg-gray-800 rounded-lg overflow-hidden shadow-lg transform transition-transform hover:scale-105 cursor-pointer"
-                         onClick={() => handleContentClick(item.id, item.media_type)}>
-                      <img src={item.thumbnail} alt={item.title} className="w-full h-32 object-cover" 
-                           onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 180, "خطای عکس"); }}/>
-                      <div className="p-3">
-                        <h3 className="text-white font-semibold text-sm truncate">{item.title}</h3>
-                        <p className="text-gray-400 text-xs mt-1">{item.media_type === 'movie' ? 'فیلم' : 'سریال'}</p> 
-                      </div>
+                {/* Popular Section */}
+                {popularMovies.length > 0 && (
+                  <section>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-2xl font-bold text-gray-200">محبوب</h3>
+                      <a href="javascript:void(0)" onClick={() => handleViewAllClick('Popular')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
                     </div>
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {popularMovies.map(renderMovieCard)}
+                    </div>
+                  </section>
+                )}
 
-          {/* Right Sidebar for Continue Watching & Recently Updated */}
-          <div className="lg:col-span-1 space-y-8">
-            {/* Continue Watching Section - Still uses placeholder for now */}
-            {continueWatching.length > 0 && (
-              <section>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-2xl font-bold text-gray-200">ادامه تماشا</h3>
-                  <a href="javascript:void(0)" onClick={() => handleViewAllClick('Continue Watching')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
-                </div>
-                <div className="space-y-4">
-                  {continueWatching.map(renderMovieCard)}
-                </div>
-              </section>
-            )}
+                {/* My Watchlist Section */}
+                {myWatchlist.length > 0 && (
+                  <section>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-2xl font-bold text-gray-200">لیست تماشای من</h3>
+                      <a href="javascript:void(0)" onClick={() => handleViewAllClick('My Watchlist')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {myWatchlist.map((item) => (
+                        <div key={item.id} className="relative flex-shrink-0 w-48 bg-gray-800 rounded-lg overflow-hidden shadow-lg transform transition-transform hover:scale-105 cursor-pointer"
+                             onClick={() => handleContentClick(item.id, item.media_type)}>
+                          <img src={item.thumbnail} alt={item.title} className="w-full h-32 object-cover"
+                               onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 180, "خطای عکس"); }}/>
+                          <div className="p-3">
+                            <h3 className="text-white font-semibold text-sm truncate">{item.title}</h3>
+                            <p className="text-gray-400 text-xs mt-1">{item.media_type === 'movie' ? 'فیلم' : 'سریال'}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
 
-            {/* Recently Updated Series Section - Still uses placeholder for now */}
-            {recentlyUpdatedSeries.length > 0 && (
-              <section>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-2xl font-bold text-gray-200">سریال‌های اخیراً به‌روز شده</h3>
-                  <a href="javascript:void(0)" onClick={() => handleViewAllClick('Recently Updated Series')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
-                </div>
-                <div className="space-y-3">
-                  {recentlyUpdatedSeries.map(renderRecentlyUpdatedItem)}
-                </div>
-              </section>
-            )}
-          </div>
-        </div>
+              {/* Right Sidebar for Continue Watching & Recently Updated */}
+              <div className="lg:col-span-1 space-y-8">
+                {/* Continue Watching Section */}
+                {continueWatching.length > 0 && (
+                  <section>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-2xl font-bold text-gray-200">ادامه تماشا</h3>
+                      <a href="javascript:void(0)" onClick={() => handleViewAllClick('Continue Watching')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
+                    </div>
+                    <div className="space-y-4">
+                      {continueWatching.map(renderMovieCard)}
+                    </div>
+                  </section>
+                )}
+
+                {/* Recently Updated Series Section */}
+                {recentlyUpdatedSeries.length > 0 && (
+                  <section>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-2xl font-bold text-gray-200">سریال‌های اخیراً به‌روز شده</h3>
+                      <a href="javascript:void(0)" onClick={() => handleViewAllClick('Recently Updated Series')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
+                    </div>
+                    <div className="space-y-3">
+                      {recentlyUpdatedSeries.map(renderRecentlyUpdatedItem)}
+                    </div>
+                  </section>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
