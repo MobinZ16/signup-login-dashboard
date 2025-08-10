@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { type MovieOrSeries, getPlaceholderImage, getTmdbImageUrl, mapGenreIdsToNames } from '../mockData';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import Loader from './Loader';
 
 const MoviesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -69,8 +70,8 @@ const MoviesPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="text-white text-center p-8">
-        <h2 className="text-3xl font-extrabold text-[#09f]">در حال بارگذاری فیلم‌ها...</h2>
+      <div>
+        <Loader />
       </div>
     );
   }

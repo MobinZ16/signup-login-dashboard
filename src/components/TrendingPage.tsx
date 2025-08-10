@@ -4,45 +4,44 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Loader from './Loader';
 
-const SeriesPage: React.FC = () => {
+const TrendingPage: React.FC = () => {
   const navigate = useNavigate();
-  const [series, setSeries] = useState<MovieOrSeries[]>([]);
+  const [trendingContent, setTrendingContent] = useState<MovieOrSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchPopularTvSeries = async () => {
+    const fetchTrendingContent = async () => {
       try {
         setLoading(true);
         setError(null);
-        // Fetch popular TV series using the new endpoint
-        const response = await axios.get('http://127.0.0.1:5000/api/tmdb/popular_tv');
-        const mappedSeries: MovieOrSeries[] = response.data.map((item: any) => ({
+        const response = await axios.get('http://127.0.0.1:5000/api/tmdb/trending_all');
+        const mappedContent: MovieOrSeries[] = response.data.map((item: any) => ({
           id: String(item.id),
-          title: item.name || 'N/A', // TV series use 'name' instead of 'title'
+          title: item.title || item.name || 'N/A',
           thumbnail: getTmdbImageUrl(item.poster_path, 'w300', 300, 450),
-          genre: mapGenreIdsToNames(item.genre_ids, 'tv'),
-          year: new Date(item.first_air_date || '0').getFullYear() || 0,
+          genre: mapGenreIdsToNames(item.genre_ids, item.media_type),
+          year: new Date(item.release_date || item.first_air_date || '0').getFullYear() || 0,
           rating: item.vote_average ? parseFloat(item.vote_average.toFixed(1)) : 0,
-          media_type: 'tv',
+          media_type: item.media_type,
         }));
-        setSeries(mappedSeries.filter(item => item.year > 0)); // Filter out items with no valid year
+        setTrendingContent(mappedContent.filter(item => item.year > 0 && (item.media_type === 'movie' || item.media_type === 'tv')));
       } catch (err: any) {
-        console.error("Failed to fetch popular TV series:", err);
-        setError("خطا در بارگذاری سریال‌های محبوب. لطفاً سرور را بررسی کنید و از اتصال به اینترنت مطمئن شوید.");
+        console.error("Failed to fetch trending content:", err);
+        setError("خطا در بارگذاری محتوای ترندینگ. لطفاً سرور را بررسی کنید و از اتصال به اینترنت مطمئن شوید.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPopularTvSeries();
+    fetchTrendingContent();
   }, []);
 
   const handleContentClick = (id: string, type: 'movie' | 'tv' | undefined) => {
     navigate(`/content/${id}?type=${type}`);
   };
 
-  const renderSeriesCard = (item: MovieOrSeries) => (
+  const renderContentCard = (item: MovieOrSeries) => (
     <div
       key={item.id}
       className="relative flex flex-col bg-gray-800 rounded-lg overflow-hidden shadow-lg transform transition-transform hover:scale-105 cursor-pointer"
@@ -99,7 +98,7 @@ const SeriesPage: React.FC = () => {
   return (
     <div className="w-full p-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm text-white overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-extrabold text-[#09f]">سریال‌های محبوب</h2>
+        <h2 className="text-3xl font-extrabold text-[#09f]">محتوای ترندینگ</h2>
         <button
           onClick={() => navigate('/dashboard')}
           className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition duration-200 font-semibold"
@@ -109,14 +108,14 @@ const SeriesPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-        {series.length > 0 ? (
-          series.map(renderSeriesCard)
+        {trendingContent.length > 0 ? (
+          trendingContent.map(renderContentCard)
         ) : (
-          <p className="col-span-full text-center text-gray-400">هیچ سریالی یافت نشد.</p>
+          <p className="col-span-full text-center text-gray-400">هیچ محتوای ترندینگی یافت نشد.</p>
         )}
       </div>
     </div>
   );
 };
 
-export default SeriesPage;
+export default TrendingPage;

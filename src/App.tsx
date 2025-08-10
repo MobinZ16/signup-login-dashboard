@@ -7,6 +7,8 @@ import SeriesPage from "./components/SeriesPage";
 import DetailPage from "./components/DetailPage";
 import FavoritesPage from "./components/FavoritesPage"; // Import the new FavoritesPage
 import WatchlistPage from "./components/WatchListPage";
+import ContinueWatchingPage from "./components/ContinueWatchingList";
+import TrendingPage from "./components/TrendingPage";
 import Pattern from "./components/Pattern";
 import type { PersonalInfo } from "./type";
 import axios from "axios";
@@ -179,7 +181,19 @@ const App: React.FC = () => {
             <Route 
               path="/watchlist" 
               element={
-                isLoggedIn ? <WatchlistPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> // New route for WatchlistPage
+                isLoggedIn ? <WatchlistPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
+              } 
+            />
+            <Route 
+              path="/continue-watching" 
+              element={
+                isLoggedIn ? <ContinueWatchingPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
+              } 
+            />
+            <Route 
+              path="/trending" 
+              element={
+                isLoggedIn ? <TrendingPage /> : <Navigate to="/" /> // New route for TrendingPage
               } 
             />
             <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/"} />} />

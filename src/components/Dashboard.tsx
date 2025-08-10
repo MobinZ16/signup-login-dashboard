@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { type MovieOrSeries, type UserDashboardData, getPlaceholderImage, getTmdbImageUrl, mapGenreIdsToNames } from '../mockData';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import Loader from './Loader';
 
 interface DashboardProps {
   userEmail: string;
@@ -157,20 +158,19 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
   const handleViewAllClick = (section: string) => {
     switch (section) {
       case 'Trending':
-        navigate('/series'); 
+        navigate('/trending'); // Navigate to the new TrendingPage
         break;
       case 'Popular':
-        navigate('/movies'); 
+        navigate('/movies'); // MoviesPage is now for popular movies
         break;
       case 'My Watchlist':
-        navigate('/watchlist'); // Navigate to the new WatchlistPage
+        navigate('/watchlist'); 
         break;
       case 'Continue Watching':
-        // A dedicated page for Continue Watching could be implemented similarly
-        console.log("Navigating to Continue Watching page (not yet implemented)");
+        navigate('/continue-watching'); 
         break;
       case 'Recently Updated Series':
-        navigate('/series'); 
+        navigate('/series'); // SeriesPage is now for popular series
         break;
       default:
         console.log(`مشاهده همه محتوای ${section}...`);
@@ -298,9 +298,8 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
 
   if (loading) {
     return (
-      <div className="text-white text-center p-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm flex items-center justify-center min-h-[500px]">
-        <h2 className="text-3xl font-extrabold text-[#09f] mb-4">در حال بارگذاری داشبورد...</h2>
-        <p className="text-lg">لطفاً صبر کنید.</p>
+      <div>
+        <Loader />
       </div>
     );
   }
@@ -438,7 +437,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
           </div>
         </header>
 
-        {/* Search Results Section - NEW */}
+        {/* Search Results Section */}
         {isSearching ? (
           <div className="text-white text-center py-8">
             <h3 className="text-2xl font-bold text-[#09f]">در حال جستجو...</h3>

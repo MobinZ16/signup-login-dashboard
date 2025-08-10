@@ -235,6 +235,24 @@ def tmdb_popular_movies():
         return jsonify({"error": f"Error fetching popular movies from TMDB: {e}"}), 500
 
 
+@app.route('/api/tmdb/popular_tv', methods=['GET'])
+def tmdb_popular_tv():
+    """Fetches popular TV series from TMDB."""
+    url = f"{TMDB_BASE_URL}/tv/popular"
+    params = {
+        'api_key': TMDB_API_KEY,
+        'language': 'fa-IR'
+    }
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return jsonify(response.json().get('results', [])), 200
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Error fetching popular TV series from TMDB: {e}"}), 500
+    except Exception as e:
+        return jsonify({"error": f"An unexpected error occurred: {e}"}), 500
+
+
 @app.route('/api/tmdb/trending_all', methods=['GET'])
 def tmdb_trending_all():
     url = f"{TMDB_BASE_URL}/trending/all/week" 
@@ -392,7 +410,7 @@ def remove_continue_watching():
     if item_to_remove:
         db.session.delete(item_to_remove)
         db.session.commit()
-        return jsonify({"message": "Continue watching item removed successfully!"}), 200
+        return jsonify({"message": "Content removed from continue watching successfully!"}), 200
     else:
         return jsonify({"error": "Item not found in continue watching list"}), 404
 
@@ -478,4 +496,3 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all() 
     app.run(debug=True)
-

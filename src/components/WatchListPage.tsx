@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { type MovieOrSeries, getPlaceholderImage, getTmdbImageUrl } from '../mockData';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import Loader from './Loader';
 
 interface WatchlistPageProps {
   loggedInUserId: number | null;
@@ -104,8 +105,8 @@ const WatchlistPage: React.FC<WatchlistPageProps> = ({ loggedInUserId }) => {
 
   if (loading) {
     return (
-      <div className="w-full p-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm text-white text-center flex items-center justify-center min-h-[500px]">
-        <h2 className="text-3xl font-extrabold text-[#09f] mb-4">در حال بارگذاری لیست تماشا...</h2>
+      <div>
+        <Loader />
       </div>
     );
   }
