@@ -4,12 +4,12 @@ import AuthForm from "./components/AuthForm";
 import Dashboard from "./components/Dashboard";
 import MoviesPage from "./components/MoviesPage"; 
 import SeriesPage from "./components/SeriesPage"; 
-import DetailPage from "./components/DetailPage"; // Import DetailPage
+import DetailPage from "./components/DetailPage";
 import Pattern from "./components/Pattern";
 import type { PersonalInfo } from "./type";
 import axios from "axios";
 import './index.css';
-import { mockUserDashboardData } from './mockData'; 
+import { type UserDashboardData } from './mockData'; 
 
 const initialData: PersonalInfo = {
   userName: "",
@@ -26,6 +26,7 @@ const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false); 
   const [loggedInUserEmail, setLoggedInUserEmail] = useState(''); 
   const [displayUserName, setDisplayUserName] = useState(''); 
+  const [loggedInUserId, setLoggedInUserId] = useState<number | null>(null); // New state for user ID
 
   const handleUpdate = (info: PersonalInfo) => {
     setPersonalInfo(info);
@@ -50,8 +51,8 @@ const App: React.FC = () => {
       if (isLoginForm && response.status === 200) {
         setIsLoggedIn(true);
         setLoggedInUserEmail(personalInfo.email); 
-        const userInMock = mockUserDashboardData.find(user => user.email === personalInfo.email);
-        setDisplayUserName(userInMock ? userInMock.userName : personalInfo.email.split('@')[0] || 'کاربر'); 
+        setDisplayUserName(response.data.user?.username || personalInfo.email.split('@')[0] || 'کاربر'); 
+        setLoggedInUserId(response.data.user?.id || null); // Set user ID from login response
       } else if (!isLoginForm && response.status === 201) {
         setIsLogin(true);
       }
@@ -64,6 +65,7 @@ const App: React.FC = () => {
     setIsLoggedIn(false);
     setLoggedInUserEmail(''); 
     setDisplayUserName('');
+    setLoggedInUserId(null); // Clear user ID on logout
     setIsLogin(true);
     setPersonalInfo(initialData);
     setMessage('');
@@ -104,7 +106,12 @@ const App: React.FC = () => {
               path="/dashboard" 
               element={
                 isLoggedIn ? (
-                  <Dashboard userEmail={loggedInUserEmail} userName={displayUserName} onLogout={handleLogout} />
+                  <Dashboard 
+                    userEmail={loggedInUserEmail} 
+                    userName={displayUserName} 
+                    onLogout={handleLogout} 
+                    loggedInUserId={loggedInUserId} // Pass userId
+                  />
                 ) : (
                   <Navigate to="/" /> 
                 )
@@ -122,11 +129,10 @@ const App: React.FC = () => {
                 isLoggedIn ? <SeriesPage /> : <Navigate to="/" /> 
               } 
             />
-            {/* New route for content detail pages */}
             <Route 
-              path="/content/:id" // Using a generic ID for now
+              path="/content/:id" 
               element={
-                isLoggedIn ? <DetailPage /> : <Navigate to="/" /> 
+                isLoggedIn ? <DetailPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> // Pass userId
               } 
             />
             <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/"} />} />
@@ -138,3 +144,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+

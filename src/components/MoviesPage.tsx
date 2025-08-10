@@ -1,38 +1,52 @@
-import React from 'react';
-import { type MovieOrSeries, mockUserDashboardData } from '../mockData'; 
+import React, { useState, useEffect } from 'react';
+import { type MovieOrSeries, getPlaceholderImage, getTmdbImageUrl, mapGenreIdsToNames } from '../mockData';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const MoviesPage: React.FC = () => {
   const navigate = useNavigate();
+  const [movies, setMovies] = useState<MovieOrSeries[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const allMovies: MovieOrSeries[] = [];
-  mockUserDashboardData.forEach(userData => {
-    userData.trending.forEach(item => {
-      if (!allMovies.some(movie => movie.id === item.id)) allMovies.push(item);
-    });
-    userData.popular.forEach(item => {
-      if (!allMovies.some(movie => movie.id === item.id)) allMovies.push(item);
-    });
-    userData.myWatchlist.forEach(item => {
-        if (!item.episode && !allMovies.some(movie => movie.id === item.id)) allMovies.push(item);
-    });
-    if (userData.featuredMovie && !userData.featuredMovie.episode && !allMovies.some(movie => movie.id === userData.featuredMovie?.id)) {
-        allMovies.push(userData.featuredMovie);
-    }
-  });
+  useEffect(() => {
+    const fetchMovies = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get('http://127.0.0.1:5000/api/tmdb/popular_movies');
+        
+        const mappedMovies: MovieOrSeries[] = response.data.map((item: any) => ({
+          id: String(item.id),
+          title: item.title || 'N/A',
+          thumbnail: getTmdbImageUrl(item.poster_path, 'w500', 300, 450), // Use getTmdbImageUrl
+          genre: mapGenreIdsToNames(item.genre_ids, 'movie'), // Map genre IDs
+          year: new Date(item.release_date || '0').getFullYear() || 0,
+          rating: item.vote_average ? parseFloat(item.vote_average.toFixed(1)) : 0,
+          media_type: 'movie', 
+        }));
+        setMovies(mappedMovies.filter(item => item.year > 0));
+      } catch (err: any) {
+        console.error("Failed to fetch movies:", err);
+        setError("خطا در بارگذاری فیلم‌ها. لطفاً دوباره تلاش کنید.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    fetchMovies();
+  }, []);
 
   const renderMovieCard = (item: MovieOrSeries) => (
     <div
       key={item.id}
       className="relative flex flex-col bg-gray-800 rounded-lg overflow-hidden shadow-lg transform transition-transform hover:scale-105 cursor-pointer"
-      onClick={() => navigate(`/content/${item.id}`)} // Changed to navigate to detail page
+      onClick={() => navigate(`/content/${item.id}?type=${item.media_type}`)}
     >
       <img
-        src={item.thumbnail}
+        src={item.thumbnail} // Use item.thumbnail which is already a full TMDB URL
         alt={item.title}
         className="w-full h-60 object-cover"
-        onError={(e) => { e.currentTarget.src = 'https://placehold.co/300x450/000/fff?text=No+Image'; }}
+        onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 450, "خطای عکس"); }} // Fallback
       />
       <div className="p-3 flex-grow">
         <h3 className="text-white font-semibold text-lg truncate">{item.title}</h3>
@@ -53,6 +67,29 @@ const MoviesPage: React.FC = () => {
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="text-white text-center p-8">
+        <h2 className="text-3xl font-extrabold text-[#09f]">در حال بارگذاری فیلم‌ها...</h2>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-red-400 text-center p-8">
+        <h2 className="text-3xl font-extrabold text-red-500">خطا</h2>
+        <p className="text-lg">{error}</p>
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="mt-6 px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition duration-200 font-semibold"
+        >
+          بازگشت به داشبورد
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full p-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm text-white overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
       <div className="flex justify-between items-center mb-6">
@@ -66,7 +103,7 @@ const MoviesPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-        {allMovies.map(renderMovieCard)}
+        {movies.length > 0 ? movies.map(renderMovieCard) : <p className="col-span-full text-center text-gray-400">فیلمی یافت نشد.</p>}
       </div>
     </div>
   );

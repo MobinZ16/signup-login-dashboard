@@ -1,22 +1,124 @@
-import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { getAllMockContent, type MovieOrSeries } from '../mockData';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { type MovieOrSeries, getPlaceholderImage, getTmdbImageUrl, mapGenreIdsToNames } from '../mockData';
+import axios from 'axios';
 
-const DetailPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>(); // Get the ID from the URL
+interface DetailPageProps {
+  loggedInUserId: number | null;
+}
+
+const DetailPage: React.FC<DetailPageProps> = ({ loggedInUserId }) => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const allContent = getAllMockContent(); // Get all mock content
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const contentType = queryParams.get('type') || 'movie';
 
-  const content: MovieOrSeries | undefined = allContent.find(item => item.id === id);
+  const [content, setContent] = useState<MovieOrSeries | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [watchlistMessage, setWatchlistMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchContentDetails = async () => {
+      if (!id) {
+        setError("شناسه محتوا نامعتبر است.");
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        setError(null);
+        setWatchlistMessage(null);
+        
+        const response = await axios.get(`http://127.0.0.1:5000/api/tmdb/details/${id}?type=${contentType}`);
+        const data = response.data;
+
+        const mappedContent: MovieOrSeries = {
+          id: String(data.id),
+          title: data.title || data.name || 'N/A',
+          thumbnail: getTmdbImageUrl(data.poster_path, 'w500', 300, 450), // Use getTmdbImageUrl
+          poster: getTmdbImageUrl(data.backdrop_path, 'original', 1200, 600), // Use getTmdbImageUrl
+          genre: mapGenreIdsToNames(data.genres?.map((g: any) => g.id), contentType === 'tv' ? 'tv' : 'movie'), // Map genre IDs
+          year: new Date(data.release_date || data.first_air_date || '0').getFullYear() || 0,
+          rating: data.vote_average ? parseFloat(data.vote_average.toFixed(1)) : 0,
+          description: data.overview || 'خلاصه داستانی موجود نیست.',
+          director: data.credits?.crew?.find((crew: any) => crew.job === 'Director')?.name || 'نامشخص',
+          cast: data.credits?.cast?.slice(0, 5).map((cast: any) => cast.name) || [],
+          season: contentType === 'tv' && data.last_episode_to_air ? `فصل ${data.last_episode_to_air.season_number}` : undefined,
+          episode: contentType === 'tv' && data.last_episode_to_air ? `قسمت ${data.last_episode_to_air.episode_number}` : undefined,
+          media_type: contentType === 'tv' ? 'tv' : 'movie',
+        };
+        setContent(mappedContent);
+      } catch (err: any) {
+        console.error("Failed to fetch content details:", err);
+        setError("خطا در بارگذاری جزئیات محتوا. لطفاً مطمئن شوید ID و نوع (فیلم/سریال) صحیح هستند.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchContentDetails();
+  }, [id, contentType]);
+
+  const handleAddToWatchlist = async () => {
+    if (!content) {
+      setWatchlistMessage("محتوایی برای افزودن انتخاب نشده است.");
+      return;
+    }
+    if (!loggedInUserId) {
+      setWatchlistMessage("برای افزودن به لیست تماشا، ابتدا وارد شوید.");
+      return;
+    }
+
+    setWatchlistMessage(null);
+    try {
+      const response = await axios.post('http://127.0.0.1:5000/api/watchlist/add', {
+        userId: loggedInUserId,
+        content_id: content.id,
+        content_type: content.media_type,
+        title: content.title,
+        thumbnail_url: content.thumbnail, // This is already a full URL from getTmdbImageUrl
+      });
+      setWatchlistMessage(response.data.message);
+    } catch (err: any) {
+      console.error("Failed to add to watchlist:", err);
+      setWatchlistMessage(err.response?.data?.error || "خطا در افزودن به لیست تماشا.");
+    }
+  };
+
+
+  if (loading) {
+    return (
+      <div className="w-full max-w-4xl p-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm text-white text-center">
+        <h2 className="text-3xl font-extrabold text-[#09f] mb-4">در حال بارگذاری جزئیات...</h2>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full max-w-4xl p-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm text-red-400 text-center">
+        <h2 className="text-3xl font-extrabold text-red-500">خطا</h2>
+        <p className="text-lg">{error}</p>
+        <button
+          onClick={() => navigate(-1)}
+          className="mt-6 px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition duration-200 font-semibold"
+        >
+          بازگشت
+        </button>
+      </div>
+    );
+  }
 
   if (!content) {
     return (
       <div className="w-full max-w-4xl p-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm text-white text-center">
-        <h2 className="text-3xl font-extrabold text-[#09f] mb-4">خطا</h2>
-        <p className="text-lg">محتوای مورد نظر یافت نشد.</p>
+        <h2 className="text-3xl font-extrabold text-[#09f] mb-4">محتوایی یافت نشد</h2>
+        <p className="text-lg">متأسفانه جزئیات این مورد در دسترس نیست.</p>
         <button
-          onClick={() => navigate(-1)} // Go back to the previous page
-          className="mt-6 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200"
+          onClick={() => navigate(-1)}
+          className="mt-6 px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition duration-200 font-semibold"
         >
           بازگشت
         </button>
@@ -32,8 +134,8 @@ const DetailPage: React.FC = () => {
           <img
             src={content.poster}
             alt={content.title}
-            className="w-full h-full object-cover opacity-30" // Subtle opacity
-            onError={(e) => { e.currentTarget.src = 'https://placehold.co/1200x600/000/fff?text=No+Image'; }}
+            className="w-full h-full object-cover opacity-30"
+            onError={(e) => { e.currentTarget.src = getPlaceholderImage(1200, 600, "خطای عکس"); }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent opacity-90"></div>
         </div>
@@ -47,7 +149,7 @@ const DetailPage: React.FC = () => {
             src={content.thumbnail}
             alt={content.title}
             className="w-56 h-80 object-cover rounded-lg shadow-xl border border-gray-700"
-            onError={(e) => { e.currentTarget.src = 'https://placehold.co/224x320/000/fff?text=No+Image'; }}
+            onError={(e) => { e.currentTarget.src = getPlaceholderImage(224, 320, "خطای عکس"); }}
           />
         </div>
 
@@ -97,14 +199,22 @@ const DetailPage: React.FC = () => {
               <svg className="w-5 h-5 ml-2 transform rotate-180" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
               تماشای فیلم
             </button>
-            <button className="px-6 py-3 bg-gray-700 text-white rounded-lg font-semibold hover:bg-gray-600 transition duration-200 flex items-center">
+            <button 
+              onClick={handleAddToWatchlist}
+              className="px-6 py-3 bg-gray-700 text-white rounded-lg font-semibold hover:bg-gray-600 transition duration-200 flex items-center"
+            >
               <svg className="w-5 h-5 ml-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"></path></svg>
               افزودن به لیست تماشا
             </button>
           </div>
+          {watchlistMessage && (
+            <p className={`mt-4 text-center ${watchlistMessage.includes("خطا") ? "text-red-400" : "text-green-400"}`}>
+              {watchlistMessage}
+            </p>
+          )}
 
           <button
-            onClick={() => navigate(-1)} // Go back to the previous page
+            onClick={() => navigate(-1)}
             className="mt-8 px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition duration-200 font-semibold"
           >
             بازگشت به لیست
