@@ -18,6 +18,9 @@ const DetailPage: React.FC<DetailPageProps> = ({ loggedInUserId }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [watchlistMessage, setWatchlistMessage] = useState<string | null>(null);
+  const [continueWatchingMessage, setContinueWatchingMessage] = useState<string | null>(null);
+  const [favoriteMessage, setFavoriteMessage] = useState<string | null>(null); // New state for favorite messages
+
 
   useEffect(() => {
     const fetchContentDetails = async () => {
@@ -29,7 +32,9 @@ const DetailPage: React.FC<DetailPageProps> = ({ loggedInUserId }) => {
       try {
         setLoading(true);
         setError(null);
-        setWatchlistMessage(null);
+        setWatchlistMessage(null); 
+        setContinueWatchingMessage(null);
+        setFavoriteMessage(null); // Clear favorite messages
         
         const response = await axios.get(`http://127.0.0.1:5000/api/tmdb/details/${id}?type=${contentType}`);
         const data = response.data;
@@ -37,9 +42,9 @@ const DetailPage: React.FC<DetailPageProps> = ({ loggedInUserId }) => {
         const mappedContent: MovieOrSeries = {
           id: String(data.id),
           title: data.title || data.name || 'N/A',
-          thumbnail: getTmdbImageUrl(data.poster_path, 'w500', 300, 450), // Use getTmdbImageUrl
-          poster: getTmdbImageUrl(data.backdrop_path, 'original', 1200, 600), // Use getTmdbImageUrl
-          genre: mapGenreIdsToNames(data.genres?.map((g: any) => g.id), contentType === 'tv' ? 'tv' : 'movie'), // Map genre IDs
+          thumbnail: getTmdbImageUrl(data.poster_path, 'w500', 300, 450),
+          poster: getTmdbImageUrl(data.backdrop_path, 'original', 1200, 600),
+          genre: mapGenreIdsToNames(data.genres?.map((g: any) => g.id), contentType === 'tv' ? 'tv' : 'movie'),
           year: new Date(data.release_date || data.first_air_date || '0').getFullYear() || 0,
           rating: data.vote_average ? parseFloat(data.vote_average.toFixed(1)) : 0,
           description: data.overview || 'خلاصه داستانی موجود نیست.',
@@ -71,19 +76,76 @@ const DetailPage: React.FC<DetailPageProps> = ({ loggedInUserId }) => {
       return;
     }
 
-    setWatchlistMessage(null);
+    setWatchlistMessage(null); 
     try {
       const response = await axios.post('http://127.0.0.1:5000/api/watchlist/add', {
-        userId: loggedInUserId,
+        userId: loggedInUserId, 
         content_id: content.id,
         content_type: content.media_type,
         title: content.title,
-        thumbnail_url: content.thumbnail, // This is already a full URL from getTmdbImageUrl
+        thumbnail_url: content.thumbnail, 
       });
       setWatchlistMessage(response.data.message);
     } catch (err: any) {
       console.error("Failed to add to watchlist:", err);
       setWatchlistMessage(err.response?.data?.error || "خطا در افزودن به لیست تماشا.");
+    }
+  };
+
+  const handlePlayContent = async () => {
+    if (!content) {
+      setContinueWatchingMessage("محتوایی برای پخش انتخاب نشده است.");
+      return;
+    }
+    if (!loggedInUserId) {
+      setContinueWatchingMessage("برای شروع تماشا، ابتدا وارد شوید.");
+      return;
+    }
+
+    setContinueWatchingMessage(null);
+    try {
+      const initialProgress = 5; 
+      const response = await axios.post('http://127.0.0.1:5000/api/continue_watching/update', {
+        userId: loggedInUserId,
+        content_id: content.id,
+        content_type: content.media_type,
+        title: content.title,
+        thumbnail_url: content.thumbnail,
+        progress: initialProgress,
+      });
+      setContinueWatchingMessage(response.data.message + ` (پیشرفت: ${initialProgress}%)`);
+
+      console.log(`Playing: ${content.title} - Type: ${content.media_type} - Initial Progress: ${initialProgress}%`);
+
+    } catch (err: any) {
+      console.error("Failed to update continue watching:", err);
+      setContinueWatchingMessage(err.response?.data?.error || "خطا در شروع/ادامه تماشا.");
+    }
+  };
+
+  const handleAddToFavorites = async () => {
+    if (!content) {
+      setFavoriteMessage("محتوایی برای افزودن انتخاب نشده است.");
+      return;
+    }
+    if (!loggedInUserId) {
+      setFavoriteMessage("برای افزودن به علاقه‌مندی‌ها، ابتدا وارد شوید.");
+      return;
+    }
+
+    setFavoriteMessage(null);
+    try {
+      const response = await axios.post('http://127.0.0.1:5000/api/favorites/add', {
+        userId: loggedInUserId,
+        content_id: content.id,
+        content_type: content.media_type,
+        title: content.title,
+        thumbnail_url: content.thumbnail,
+      });
+      setFavoriteMessage(response.data.message);
+    } catch (err: any) {
+      console.error("Failed to add to favorites:", err);
+      setFavoriteMessage(err.response?.data?.error || "خطا در افزودن به علاقه‌مندی‌ها.");
     }
   };
 
@@ -195,7 +257,10 @@ const DetailPage: React.FC<DetailPageProps> = ({ loggedInUserId }) => {
           )}
 
           <div className="flex items-center space-x-4">
-            <button className="px-6 py-3 bg-[#09f] text-white rounded-lg font-semibold hover:bg-opacity-90 transition duration-200 flex items-center">
+            <button 
+              onClick={handlePlayContent}
+              className="px-6 py-3 bg-[#09f] text-white rounded-lg font-semibold hover:bg-opacity-90 transition duration-200 flex items-center"
+            >
               <svg className="w-5 h-5 ml-2 transform rotate-180" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
               تماشای فیلم
             </button>
@@ -206,10 +271,27 @@ const DetailPage: React.FC<DetailPageProps> = ({ loggedInUserId }) => {
               <svg className="w-5 h-5 ml-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"></path></svg>
               افزودن به لیست تماشا
             </button>
+            <button 
+              onClick={handleAddToFavorites} // New button for favorites
+              className="px-6 py-3 bg-yellow-600 text-white rounded-lg font-semibold hover:bg-yellow-700 transition duration-200 flex items-center"
+            >
+              <svg className="w-5 h-5 ml-2" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.538 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.783.57-1.838-.197-1.538-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.92 8.72c-.783-.57-.381-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z"></path></svg>
+              افزودن به علاقه‌مندی‌ها
+            </button>
           </div>
           {watchlistMessage && (
             <p className={`mt-4 text-center ${watchlistMessage.includes("خطا") ? "text-red-400" : "text-green-400"}`}>
               {watchlistMessage}
+            </p>
+          )}
+          {continueWatchingMessage && (
+            <p className={`mt-2 text-center ${continueWatchingMessage.includes("خطا") ? "text-red-400" : "text-green-400"}`}>
+              {continueWatchingMessage}
+            </p>
+          )}
+          {favoriteMessage && ( // Display favorite messages
+            <p className={`mt-2 text-center ${favoriteMessage.includes("خطا") ? "text-red-400" : "text-green-400"}`}>
+              {favoriteMessage}
             </p>
           )}
 

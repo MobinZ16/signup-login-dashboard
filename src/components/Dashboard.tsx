@@ -18,9 +18,9 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
   const [popularMovies, setPopularMovies] = useState<MovieOrSeries[]>([]);
   const [recentlyUpdatedSeries, setRecentlyUpdatedSeries] = useState<MovieOrSeries[]>([]);
   const [myWatchlist, setMyWatchlist] = useState<MovieOrSeries[]>([]);
-  const [continueWatching, setContinueWatching] = useState<MovieOrSeries[]>([]);
+  
+  const [continueWatching, setContinueWatching] = useState<MovieOrSeries[]>([]); 
 
-  // New states for search functionality
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<MovieOrSeries[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
@@ -113,14 +113,24 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
             media_type: item.content_type,
           }));
           setMyWatchlist(mappedWatchlist);
+
+          const cwRes = await axios.get(`http://127.0.0.1:5000/api/continue_watching/${loggedInUserId}`);
+          const mappedContinueWatching: MovieOrSeries[] = cwRes.data.map((item: any) => ({
+            id: item.content_id,
+            title: item.title,
+            thumbnail: item.thumbnail_url,
+            genre: item.content_type === 'movie' ? 'فیلم' : 'سریال',
+            year: 0,
+            rating: 0,
+            progress: item.progress, 
+            media_type: item.content_type,
+          }));
+          setContinueWatching(mappedContinueWatching);
+
         } else {
           setMyWatchlist([]); 
+          setContinueWatching([]);
         }
-
-        setContinueWatching([
-            { id: "cw101", title: "تئوری بیگ بنگ", thumbnail: getPlaceholderImage(200, 120, "Big Bang Theory", "09f", "272257"), progress: 85, genre: "کمدی", year: 2007, rating: 8.2, episode: "S02 EP14", season: "فصل ۲", media_type: 'tv' },
-            { id: "cw102", title: "کارآگاه زامبی", thumbnail: getPlaceholderImage(200, 120, "Zombie Detective", "09f", "272257"), progress: 50, genre: "کمدی", year: 2020, rating: 7.4, episode: "S01 EP04", media_type: 'tv' },
-        ]);
 
         setRecentlyUpdatedSeries([
             { id: "ru101", title: "آخرین بازمانده از ما", thumbnail: getPlaceholderImage(80, 80, "The Last of Us", "09f", "272257"), genre: "درام", year: 2023, rating: 8.7, season: "S02", episode: "EP03", media_type: 'tv' },
@@ -145,17 +155,35 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
   };
 
   const handleViewAllClick = (section: string) => {
-    console.log(`مشاهده همه محتوای ${section}...`);
+    switch (section) {
+      case 'Trending':
+        navigate('/series'); 
+        break;
+      case 'Popular':
+        navigate('/movies'); 
+        break;
+      case 'My Watchlist':
+        navigate('/watchlist'); // Navigate to the new WatchlistPage
+        break;
+      case 'Continue Watching':
+        // A dedicated page for Continue Watching could be implemented similarly
+        console.log("Navigating to Continue Watching page (not yet implemented)");
+        break;
+      case 'Recently Updated Series':
+        navigate('/series'); 
+        break;
+      default:
+        console.log(`مشاهده همه محتوای ${section}...`);
+    }
   };
+
 
   const handleContentClick = (id: string, type: 'movie' | 'tv' | undefined) => {
     navigate(`/content/${id}?type=${type}`);
   };
 
-  // Handler for search input change
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
-    // Optionally, clear search results if query is empty
     if (e.target.value === '') {
       setSearchResults([]);
       setIsSearching(false);
@@ -163,9 +191,8 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
     }
   };
 
-  // Handler for search submission
   const handleSearchSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); // Prevent default form submission
+    e.preventDefault(); 
     if (!searchQuery.trim()) {
       setSearchResults([]);
       setIsSearching(false);
@@ -181,7 +208,6 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
         const year = new Date(item.release_date || item.first_air_date || '0').getFullYear();
         let mediaType: 'movie' | 'tv' | undefined = item.media_type;
 
-        // Defensive check: if media_type is missing, try to infer it based on date fields
         if (!mediaType) {
           if (item.release_date) {
             mediaType = 'movie';
@@ -195,17 +221,16 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
           title: item.title || item.name || 'N/A',
           thumbnail: getTmdbImageUrl(item.poster_path, 'w300', 300, 450),
           genre: mapGenreIdsToNames(item.genre_ids, mediaType),
-          year: !isNaN(year) && year > 0 ? year : 0, // Ensure year is a valid number > 0
+          year: !isNaN(year) && year > 0 ? year : 0, 
           rating: item.vote_average ? parseFloat(item.vote_average.toFixed(1)) : 0,
           media_type: mediaType,
         };
       });
-      // Filter out items with year 0 or invalid media_type
       setSearchResults(mappedResults.filter(item => item.year > 0 && (item.media_type === 'movie' || item.media_type === 'tv'))); 
     } catch (err: any) {
       console.error("Search failed:", err);
       setSearchError("خطا در جستجو. لطفاً دوباره تلاش کنید.");
-      setSearchResults([]); // Clear results on error
+      setSearchResults([]); 
     } finally {
       setIsSearching(false);
     }
@@ -218,12 +243,12 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
       onClick={() => handleContentClick(item.id, item.media_type)}
     >
       <img
-        src={item.thumbnail}
+        src={item.thumbnail} 
         alt={item.title}
         className="w-full h-32 object-cover"
         onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 180, "خطای عکس"); }}
       />
-      {item.progress !== undefined && (
+      {item.progress !== undefined && ( 
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-600">
           <div
             className="h-full bg-[#09f]"
@@ -438,7 +463,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
         ) : null}
 
         {/* Conditional Rendering of Dashboard Sections */}
-        {searchQuery.trim() === '' && ( // Only show dashboard sections if not searching
+        {searchQuery.trim() === '' && ( 
           <>
             {/* Featured Movie/Series */}
             {featuredMovie && (
@@ -464,6 +489,19 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-8">
+                {/* Continue Watching Section */}
+                {continueWatching.length > 0 && (
+                  <section>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-2xl font-bold text-gray-200">ادامه تماشا</h3>
+                      <a href="javascript:void(0)" onClick={() => handleViewAllClick('Continue Watching')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {continueWatching.map(renderMovieCard)} 
+                    </div>
+                  </section>
+                )}
+
                 {/* Trending Section */}
                 {trendingContent.length > 0 && (
                   <section>
@@ -530,21 +568,8 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
                 )}
               </div>
 
-              {/* Right Sidebar for Continue Watching & Recently Updated */}
+              {/* Right Sidebar for Recently Updated */}
               <div className="lg:col-span-1 space-y-8">
-                {/* Continue Watching Section */}
-                {continueWatching.length > 0 && (
-                  <section>
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-2xl font-bold text-gray-200">ادامه تماشا</h3>
-                      <a href="javascript:void(0)" onClick={() => handleViewAllClick('Continue Watching')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
-                    </div>
-                    <div className="space-y-4">
-                      {continueWatching.map(renderMovieCard)}
-                    </div>
-                  </section>
-                )}
-
                 {/* Recently Updated Series Section */}
                 {recentlyUpdatedSeries.length > 0 && (
                   <section>

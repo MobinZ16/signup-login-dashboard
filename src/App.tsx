@@ -5,6 +5,8 @@ import Dashboard from "./components/Dashboard";
 import MoviesPage from "./components/MoviesPage"; 
 import SeriesPage from "./components/SeriesPage"; 
 import DetailPage from "./components/DetailPage";
+import FavoritesPage from "./components/FavoritesPage"; // Import the new FavoritesPage
+import WatchlistPage from "./components/WatchListPage";
 import Pattern from "./components/Pattern";
 import type { PersonalInfo } from "./type";
 import axios from "axios";
@@ -28,7 +30,6 @@ const App: React.FC = () => {
   const [displayUserName, setDisplayUserName] = useState(''); 
   const [loggedInUserId, setLoggedInUserId] = useState<number | null>(null);
 
-  // useEffect to load user session from localStorage on component mount
   useEffect(() => {
     try {
       const storedLoggedIn = localStorage.getItem('isLoggedIn');
@@ -40,14 +41,13 @@ const App: React.FC = () => {
         setIsLoggedIn(true);
         setLoggedInUserEmail(storedUserEmail);
         setDisplayUserName(storedUserName);
-        setLoggedInUserId(parseInt(storedUserId, 10)); // Convert back to number
+        setLoggedInUserId(parseInt(storedUserId, 10)); 
       }
     } catch (e) {
       console.error("Failed to load session from localStorage", e);
-      // Fallback: Clear session if there's an error reading localStorage
       handleLogout(); 
     }
-  }, []); // Run only once on mount
+  }, []); 
 
   const handleUpdate = (info: PersonalInfo) => {
     setPersonalInfo(info);
@@ -79,11 +79,10 @@ const App: React.FC = () => {
         setDisplayUserName(userName); 
         setLoggedInUserId(userId); 
 
-        // Store session data in localStorage
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('loggedInUserEmail', userEmail);
         localStorage.setItem('displayUserName', userName);
-        localStorage.setItem('loggedInUserId', String(userId)); // Store as string
+        localStorage.setItem('loggedInUserId', String(userId)); 
       } else if (!isLoginForm && response.status === 201) {
         setIsLogin(true);
       }
@@ -102,7 +101,6 @@ const App: React.FC = () => {
     setMessage('');
     setError('');
 
-    // Clear session data from localStorage
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('loggedInUserEmail');
     localStorage.removeItem('displayUserName');
@@ -170,6 +168,18 @@ const App: React.FC = () => {
               path="/content/:id" 
               element={
                 isLoggedIn ? <DetailPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
+              } 
+            />
+            <Route 
+              path="/favorites" 
+              element={
+                isLoggedIn ? <FavoritesPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
+              } 
+            />
+            <Route 
+              path="/watchlist" 
+              element={
+                isLoggedIn ? <WatchlistPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> // New route for WatchlistPage
               } 
             />
             <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/"} />} />

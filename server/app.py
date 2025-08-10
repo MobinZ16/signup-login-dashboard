@@ -26,8 +26,11 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False) # Increased length to 256
 
-    # Relationship to WatchlistItem
+    # Relationships to other tables
     watchlist_items = db.relationship('WatchlistItem', backref='user', lazy=True)
+    continue_watching_items = db.relationship('ContinueWatchingItem', backref='user', lazy=True)
+    favorite_items = db.relationship('FavoriteItem', backref='user', lazy=True)
+
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -62,6 +65,51 @@ class WatchlistItem(db.Model):
             'title': self.title,
             'thumbnail_url': self.thumbnail_url
         }
+
+class ContinueWatchingItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    content_id = db.Column(db.String(50), nullable=False) # TMDB content ID
+    content_type = db.Column(db.String(10), nullable=False) # 'movie' or 'tv'
+    title = db.Column(db.String(255), nullable=False)
+    thumbnail_url = db.Column(db.String(255), nullable=True)
+    progress = db.Column(db.Float, default=0.0) # Percentage from 0.0 to 100.0
+
+    # Ensure uniqueness for a user's continue watching item
+    __table_args__ = (db.UniqueConstraint('user_id', 'content_id', 'content_type', name='_user_cw_uc'),)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'content_id': self.content_id,
+            'content_type': self.content_type,
+            'title': self.title,
+            'thumbnail_url': self.thumbnail_url,
+            'progress': self.progress
+        }
+
+class FavoriteItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    content_id = db.Column(db.String(50), nullable=False) # TMDB content ID
+    content_type = db.Column(db.String(10), nullable=False) # 'movie' or 'tv'
+    title = db.Column(db.String(255), nullable=False)
+    thumbnail_url = db.Column(db.String(255), nullable=True)
+
+    # Ensure uniqueness for a user's favorite item
+    __table_args__ = (db.UniqueConstraint('user_id', 'content_id', 'content_type', name='_user_favorite_uc'),)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'content_id': self.content_id,
+            'content_type': self.content_type,
+            'title': self.title,
+            'thumbnail_url': self.thumbnail_url
+        }
+
 
 # Create database tables (run this once)
 with app.app_context():
@@ -104,14 +152,12 @@ def login():
     user = User.query.filter_by(email=email).first()
 
     if user and user.check_password(password):
-        # In a real app, you would generate and return a JWT token here
-        # For now, we return user details which is not secure for production
         return jsonify({"message": "Login successful!", "user": user.to_dict()}), 200
     else:
         return jsonify({"error": "Invalid email or password"}), 401
 
 
-# --- TMDB API Proxy Endpoints (already in place) ---
+# --- TMDB API Proxy Endpoints ---
 TMDB_API_KEY = os.getenv('TMDB_API_KEY')
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 
@@ -204,9 +250,6 @@ def tmdb_trending_all():
         return jsonify({"error": f"Error fetching trending content from TMDB: {e}"}), 500
 
 # --- Watchlist Endpoints ---
-# NOTE: In a real app, user_id should be extracted from a JWT token for security.
-# For this demonstration, we'll pass user_id in the request body for simplicity.
-
 @app.route('/api/watchlist/add', methods=['POST'])
 def add_to_watchlist():
     data = request.get_json()
@@ -219,13 +262,11 @@ def add_to_watchlist():
     if not all([user_id, content_id, content_type, title]):
         return jsonify({"error": "Missing required fields"}), 400
     
-    # Ensure content_id and user_id are correctly typed
     try:
         user_id = int(user_id)
     except ValueError:
         return jsonify({"error": "Invalid user ID"}), 400
 
-    # Check if item already exists in watchlist for this user
     existing_item = WatchlistItem.query.filter_by(
         user_id=user_id,
         content_id=content_id,
@@ -233,7 +274,7 @@ def add_to_watchlist():
     ).first()
 
     if existing_item:
-        return jsonify({"message": "Content already in watchlist"}), 200 # Or 409 Conflict
+        return jsonify({"message": "Content already in watchlist"}), 200 
 
     new_item = WatchlistItem(
         user_id=user_id,
@@ -278,11 +319,163 @@ def remove_from_watchlist():
 @app.route('/api/watchlist/<int:user_id>', methods=['GET'])
 def get_watchlist(user_id):
     watchlist_items = WatchlistItem.query.filter_by(user_id=user_id).all()
-    # Convert list of objects to list of dictionaries
     return jsonify([item.to_dict() for item in watchlist_items]), 200
+
+# --- Continue Watching Endpoints ---
+
+@app.route('/api/continue_watching/update', methods=['POST'])
+def update_continue_watching():
+    data = request.get_json()
+    user_id = data.get('userId')
+    content_id = data.get('content_id')
+    content_type = data.get('content_type')
+    title = data.get('title')
+    thumbnail_url = data.get('thumbnail_url')
+    progress = data.get('progress', 0.0) # Default to 0 if not provided
+
+    if not all([user_id, content_id, content_type, title]):
+        return jsonify({"error": "Missing required fields"}), 400
+    
+    try:
+        user_id = int(user_id)
+        progress = float(progress)
+    except ValueError:
+        return jsonify({"error": "Invalid user ID or progress format"}), 400
+
+    # Find existing item or create new one
+    item = ContinueWatchingItem.query.filter_by(
+        user_id=user_id,
+        content_id=content_id,
+        content_type=content_type
+    ).first()
+
+    if item:
+        item.progress = progress
+        item.title = title # Update title/thumbnail in case it changed on TMDB
+        item.thumbnail_url = thumbnail_url
+        db.session.commit()
+        return jsonify({"message": "Continue watching item updated!", "item": item.to_dict()}), 200
+    else:
+        new_item = ContinueWatchingItem(
+            user_id=user_id,
+            content_id=content_id,
+            content_type=content_type,
+            title=title,
+            thumbnail_url=thumbnail_url,
+            progress=progress
+        )
+        db.session.add(new_item)
+        db.session.commit()
+        return jsonify({"message": "Continue watching item added!", "item": new_item.to_dict()}), 201
+
+@app.route('/api/continue_watching/remove', methods=['POST'])
+def remove_continue_watching():
+    data = request.get_json()
+    user_id = data.get('userId')
+    content_id = data.get('content_id')
+    content_type = data.get('content_type')
+
+    if not all([user_id, content_id, content_type]):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    try:
+        user_id = int(user_id)
+    except ValueError:
+        return jsonify({"error": "Invalid user ID"}), 400
+
+    item_to_remove = ContinueWatchingItem.query.filter_by(
+        user_id=user_id,
+        content_id=content_id,
+        content_type=content_type
+    ).first()
+
+    if item_to_remove:
+        db.session.delete(item_to_remove)
+        db.session.commit()
+        return jsonify({"message": "Continue watching item removed successfully!"}), 200
+    else:
+        return jsonify({"error": "Item not found in continue watching list"}), 404
+
+@app.route('/api/continue_watching/<int:user_id>', methods=['GET'])
+def get_user_continue_watching(user_id):
+    continue_watching_items = ContinueWatchingItem.query.filter_by(user_id=user_id).order_by(ContinueWatchingItem.id.desc()).all() 
+    return jsonify([item.to_dict() for item in continue_watching_items]), 200
+
+# --- Favorite Endpoints ---
+@app.route('/api/favorites/add', methods=['POST'])
+def add_to_favorites():
+    data = request.get_json()
+    user_id = data.get('userId')
+    content_id = data.get('content_id')
+    content_type = data.get('content_type')
+    title = data.get('title')
+    thumbnail_url = data.get('thumbnail_url')
+
+    if not all([user_id, content_id, content_type, title]):
+        return jsonify({"error": "Missing required fields"}), 400
+    
+    try:
+        user_id = int(user_id)
+    except ValueError:
+        return jsonify({"error": "Invalid user ID"}), 400
+
+    existing_item = FavoriteItem.query.filter_by(
+        user_id=user_id,
+        content_id=content_id,
+        content_type=content_type
+    ).first()
+
+    if existing_item:
+        return jsonify({"message": "Content already in favorites"}), 200 
+
+    new_item = FavoriteItem(
+        user_id=user_id,
+        content_id=content_id,
+        content_type=content_type,
+        title=title,
+        thumbnail_url=thumbnail_url
+    )
+    db.session.add(new_item)
+    db.session.commit()
+
+    return jsonify({"message": "Content added to favorites successfully!"}), 201
+
+@app.route('/api/favorites/remove', methods=['POST'])
+def remove_from_favorites():
+    data = request.get_json()
+    user_id = data.get('userId')
+    content_id = data.get('content_id')
+    content_type = data.get('content_type')
+
+    if not all([user_id, content_id, content_type]):
+        return jsonify({"error": "Missing required fields"}), 400
+    
+    try:
+        user_id = int(user_id)
+    except ValueError:
+        return jsonify({"error": "Invalid user ID"}), 400
+
+    item_to_remove = FavoriteItem.query.filter_by(
+        user_id=user_id,
+        content_id=content_id,
+        content_type=content_type
+    ).first()
+
+    if item_to_remove:
+        db.session.delete(item_to_remove)
+        db.session.commit()
+        return jsonify({"message": "Content removed from favorites successfully!"}), 200
+    else:
+        return jsonify({"error": "Content not found in favorites"}), 404
+
+@app.route('/api/favorites/<int:user_id>', methods=['GET'])
+def get_user_favorites(user_id):
+    favorite_items = FavoriteItem.query.filter_by(user_id=user_id).all()
+    return jsonify([item.to_dict() for item in favorite_items]), 200
+
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all() # This creates tables if they don't exist.
+        db.create_all() 
     app.run(debug=True)
 
