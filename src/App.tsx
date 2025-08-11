@@ -9,11 +9,12 @@ import FavoritesPage from "./components/FavoritesPage"; // Import the new Favori
 import WatchlistPage from "./components/WatchListPage";
 import ContinueWatchingPage from "./components/ContinueWatchingList";
 import TrendingPage from "./components/TrendingPage";
+import ContentCard from "./components/content/ContentCard";
 import Pattern from "./components/Pattern";
 import type { PersonalInfo } from "./type";
 import axios from "axios";
 import './index.css';
-import { type UserDashboardData } from './mockData'; 
+//import { type UserDashboardData } from './mockData'; 
 
 const initialData: PersonalInfo = {
   userName: "",
@@ -157,13 +158,13 @@ const App: React.FC = () => {
             <Route 
               path="/movies" 
               element={
-                isLoggedIn ? <MoviesPage /> : <Navigate to="/" /> 
+                isLoggedIn ? <MoviesPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
               } 
             />
             <Route 
               path="/series" 
               element={
-                isLoggedIn ? <SeriesPage /> : <Navigate to="/" /> 
+                isLoggedIn ? <SeriesPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
               } 
             />
             <Route 
@@ -193,7 +194,7 @@ const App: React.FC = () => {
             <Route 
               path="/trending" 
               element={
-                isLoggedIn ? <TrendingPage /> : <Navigate to="/" /> // New route for TrendingPage
+                isLoggedIn ? <TrendingPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
               } 
             />
             <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/"} />} />

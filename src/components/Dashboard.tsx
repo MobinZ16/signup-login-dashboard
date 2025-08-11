@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { type MovieOrSeries, type UserDashboardData, getPlaceholderImage, getTmdbImageUrl, mapGenreIdsToNames } from '../mockData';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import ContentCard from './content/ContentCard'; // Import the new ContentCard component
 import Loader from './Loader';
 
 interface DashboardProps {
@@ -19,6 +20,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
   const [popularMovies, setPopularMovies] = useState<MovieOrSeries[]>([]);
   const [recentlyUpdatedSeries, setRecentlyUpdatedSeries] = useState<MovieOrSeries[]>([]);
   const [myWatchlist, setMyWatchlist] = useState<MovieOrSeries[]>([]);
+  const [myFavorites, setMyFavorites] = useState<MovieOrSeries[]>([]); // State to hold user's favorites
   
   const [continueWatching, setContinueWatching] = useState<MovieOrSeries[]>([]); 
 
@@ -53,11 +55,48 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
     }
   }, [isDarkMode]);
 
+  // Helper sets for quick lookup of watchlisted/favorited items
+  const watchlistedIds = new Set(myWatchlist.map(item => `${item.id}-${item.media_type}`));
+  const favoritedIds = new Set(myFavorites.map(item => `${item.id}-${item.media_type}`));
+
+  // Function to fetch user-specific lists (watchlist and favorites)
+  const fetchUserLists = useCallback(async () => {
+    if (loggedInUserId) {
+      try {
+        const watchlistRes = await axios.get(`http://127.0.0.1:5000/api/watchlist/${loggedInUserId}`);
+        setMyWatchlist(watchlistRes.data.map((item: any) => ({
+          id: item.content_id,
+          media_type: item.content_type,
+          title: item.title, // Only need ID and type for sets, but good to keep full object
+          thumbnail: item.thumbnail_url,
+        })));
+
+        const favoritesRes = await axios.get(`http://127.0.0.1:5000/api/favorites/${loggedInUserId}`);
+        setMyFavorites(favoritesRes.data.map((item: any) => ({
+          id: item.content_id,
+          media_type: item.content_type,
+          title: item.title,
+          thumbnail: item.thumbnail_url,
+        })));
+      } catch (err) {
+        console.error("Failed to fetch user lists:", err);
+        // Optionally set an error state or message for user lists
+      }
+    } else {
+      setMyWatchlist([]);
+      setMyFavorites([]);
+    }
+  }, [loggedInUserId]);
+
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
         setError(null);
+
+        // Fetch user lists first, so their status can be reflected in cards
+        await fetchUserLists(); 
 
         const trendingRes = await axios.get('http://127.0.0.1:5000/api/tmdb/trending_all');
         const mappedTrending: MovieOrSeries[] = trendingRes.data.map((item: any) => ({
@@ -82,6 +121,12 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
           media_type: 'movie',
         }));
         setPopularMovies(mappedPopular.filter(item => item.year > 0));
+        
+        // This is still a mock for recently updated series
+        setRecentlyUpdatedSeries([
+            { id: "ru101", title: "آخرین بازمانده از ما", thumbnail: getPlaceholderImage(80, 80, "The Last of Us", "09f", "272257"), genre: "درام", year: 2023, rating: 8.7, season: "S02", episode: "EP03", media_type: 'tv' },
+            { id: "ru102", title: "برلین", thumbnail: getPlaceholderImage(80, 80, "Berlin", "09f", "272257"), genre: "جنایی", year: 2023, rating: 7.0, season: "S02", episode: "EP01", media_type: 'tv' },
+        ]);
 
         if (mappedTrending.length > 0) {
             const featured = mappedTrending[0];
@@ -102,19 +147,8 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
             });
         }
         
+        // Fetch continue watching after fetching user lists
         if (loggedInUserId) {
-          const watchlistRes = await axios.get(`http://127.0.0.1:5000/api/watchlist/${loggedInUserId}`);
-          const mappedWatchlist: MovieOrSeries[] = watchlistRes.data.map((item: any) => ({
-            id: item.content_id,
-            title: item.title,
-            thumbnail: item.thumbnail_url,
-            genre: item.content_type === 'movie' ? 'فیلم' : 'سریال', 
-            year: 0, 
-            rating: 0, 
-            media_type: item.content_type,
-          }));
-          setMyWatchlist(mappedWatchlist);
-
           const cwRes = await axios.get(`http://127.0.0.1:5000/api/continue_watching/${loggedInUserId}`);
           const mappedContinueWatching: MovieOrSeries[] = cwRes.data.map((item: any) => ({
             id: item.content_id,
@@ -127,16 +161,9 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
             media_type: item.content_type,
           }));
           setContinueWatching(mappedContinueWatching);
-
         } else {
-          setMyWatchlist([]); 
           setContinueWatching([]);
         }
-
-        setRecentlyUpdatedSeries([
-            { id: "ru101", title: "آخرین بازمانده از ما", thumbnail: getPlaceholderImage(80, 80, "The Last of Us", "09f", "272257"), genre: "درام", year: 2023, rating: 8.7, season: "S02", episode: "EP03", media_type: 'tv' },
-            { id: "ru102", title: "برلین", thumbnail: getPlaceholderImage(80, 80, "Berlin", "09f", "272257"), genre: "جنایی", year: 2023, rating: 7.0, season: "S02", episode: "EP01", media_type: 'tv' },
-        ]);
 
 
       } catch (err: any) {
@@ -148,8 +175,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
     };
 
     fetchDashboardData();
-  }, [loggedInUserId]);
-
+  }, [loggedInUserId, fetchUserLists]); // Add fetchUserLists as a dependency
 
   const handleNavLinkClick = (path: string) => {
     navigate(path);
@@ -158,10 +184,10 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
   const handleViewAllClick = (section: string) => {
     switch (section) {
       case 'Trending':
-        navigate('/trending'); // Navigate to the new TrendingPage
+        navigate('/trending'); 
         break;
       case 'Popular':
-        navigate('/movies'); // MoviesPage is now for popular movies
+        navigate('/movies'); 
         break;
       case 'My Watchlist':
         navigate('/watchlist'); 
@@ -170,17 +196,13 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
         navigate('/continue-watching'); 
         break;
       case 'Recently Updated Series':
-        navigate('/series'); // SeriesPage is now for popular series
+        navigate('/series'); 
         break;
       default:
         console.log(`مشاهده همه محتوای ${section}...`);
     }
   };
 
-
-  const handleContentClick = (id: string, type: 'movie' | 'tv' | undefined) => {
-    navigate(`/content/${id}?type=${type}`);
-  };
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -236,49 +258,48 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
     }
   };
 
-  const renderMovieCard = (item: MovieOrSeries) => (
+  // Callback for when watchlist status changes in ContentCard
+  const handleWatchlistToggled = useCallback((contentId: string, contentType: 'movie' | 'tv', isAdded: boolean) => {
+    fetchUserLists(); // Re-fetch user lists to keep them synchronized
+  }, [fetchUserLists]);
+
+  // Callback for when favorite status changes in ContentCard
+  const handleFavoriteToggled = useCallback((contentId: string, contentType: 'movie' | 'tv', isAdded: boolean) => {
+    fetchUserLists(); // Re-fetch user lists to keep them synchronized
+  }, [fetchUserLists]);
+
+  // New render function for smaller trending preview items
+  const renderTrendingPreviewItem = (item: MovieOrSeries) => (
     <div
       key={item.id}
-      className="relative flex-shrink-0 w-48 bg-gray-800 rounded-lg overflow-hidden shadow-lg transform transition-transform hover:scale-105 cursor-pointer"
-      onClick={() => handleContentClick(item.id, item.media_type)}
+      className="flex items-center p-2 rounded-lg hover:bg-gray-800 transition duration-200 cursor-pointer"
+      onClick={() => navigate(`/content/${item.id}?type=${item.media_type}`)}
     >
       <img
-        src={item.thumbnail} 
+        src={item.thumbnail}
         alt={item.title}
-        className="w-full h-32 object-cover"
-        onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 180, "خطای عکس"); }}
+        className="w-20 h-20 rounded-md object-cover mr-3" // Smaller image
+        onError={(e) => { e.currentTarget.src = getPlaceholderImage(80, 80, "خطای عکس"); }}
       />
-      {item.progress !== undefined && ( 
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-600">
-          <div
-            className="h-full bg-[#09f]"
-            style={{ width: `${item.progress}%` }}
-          ></div>
+      <div className="flex-grow">
+        <h4 className="text-white font-semibold text-sm">{item.title}</h4>
+        <p className="text-gray-400 text-xs mt-1">{item.genre} | {item.year}</p>
+      </div>
+      {item.rating && (
+        <div className="flex items-center text-yellow-400 text-xs">
+          <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.538 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.783.57-1.838-.197-1.538-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.92 8.72c-.783-.57-.381-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z"></path>
+          </svg>
+          {item.rating}
         </div>
       )}
-      <div className="p-3">
-        <h3 className="text-white font-semibold text-sm truncate">{item.title}</h3>
-        {item.episode && <p className="text-gray-400 text-xs mt-1">{item.episode}</p>}
-        {!item.episode && <p className="text-gray-400 text-xs mt-1">{item.genre} | {item.year}</p>}
-        {item.rating && (
-          <div className="flex items-center text-yellow-400 text-xs mt-1">
-            <svg
-              className="w-3 h-3 mr-1"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.538 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.783.57-1.838-.197-1.538-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.92 8.72c-.783-.57-.381-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z"></path>
-            </svg>
-            {item.rating}
-          </div>
-        )}
-      </div>
     </div>
   );
 
+
   const renderRecentlyUpdatedItem = (item: MovieOrSeries) => (
     <div key={item.id} className="flex items-center p-2 rounded-lg hover:bg-gray-800 transition duration-200 cursor-pointer"
-         onClick={() => handleContentClick(item.id, item.media_type)}>
+         onClick={() => navigate(`/content/${item.id}?type=${item.media_type}`)}> {/* Keep direct navigation for these smaller cards */}
       <img src={item.thumbnail} alt={item.title} className="w-12 h-12 rounded-md object-cover mr-3" 
            onError={(e) => { e.currentTarget.src = getPlaceholderImage(80, 80, "خطای عکس"); }}/>
       <div className="flex-grow">
@@ -340,7 +361,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
       <aside className="w-64 bg-gray-950 p-6 flex flex-col justify-between border-r border-gray-800">
         <div>
           <div className="text-white text-3xl font-bold mb-10 text-[#09f]">
-            <span className="font-inter">Flixio</span>
+            <span className="font-inter">Cinemovie</span> 
           </div>
           <nav className="space-y-4">
             <a href="javascript:void(0)" onClick={() => handleNavLinkClick('/dashboard')} className="flex items-center text-gray-300 hover:text-[#09f] transition duration-200">
@@ -437,7 +458,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
           </div>
         </header>
 
-        {/* Search Results Section */}
+        {/* Search Results Section - NEW */}
         {isSearching ? (
           <div className="text-white text-center py-8">
             <h3 className="text-2xl font-bold text-[#09f]">در حال جستجو...</h3>
@@ -451,7 +472,17 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
           <section className="mb-8">
             <h3 className="text-2xl font-bold text-gray-200 mb-4">نتایج جستجو برای "{searchQuery}"</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-              {searchResults.map(renderMovieCard)}
+              {searchResults.map(item => (
+                <ContentCard
+                  key={`${item.id}-${item.media_type}`}
+                  item={item}
+                  loggedInUserId={loggedInUserId}
+                  initialIsWatchlisted={watchlistedIds.has(`${item.id}-${item.media_type}`)}
+                  initialIsFavorited={favoritedIds.has(`${item.id}-${item.media_type}`)}
+                  onWatchlistToggled={handleWatchlistToggled}
+                  onFavoriteToggled={handleFavoriteToggled}
+                />
+              ))}
             </div>
           </section>
         ) : searchQuery.trim() !== '' && searchResults.length === 0 && !isSearching ? (
@@ -478,7 +509,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
                   <h3 className="text-4xl font-bold mb-2">{featuredMovie.title}</h3>
                   <p className="text-lg mb-2">{featuredMovie.rating} / 10</p>
                   <p className="text-sm max-w-md mb-4">{featuredMovie.description}</p>
-                  <button onClick={() => handleContentClick(featuredMovie.id, featuredMovie.media_type)} className="px-6 py-3 bg-[#09f] text-white rounded-lg font-semibold hover:bg-opacity-90 transition duration-200 flex items-center">
+                  <button onClick={() => navigate(`/content/${featuredMovie.id}?type=${featuredMovie.media_type}`)} className="px-6 py-3 bg-[#09f] text-white rounded-lg font-semibold hover:bg-opacity-90 transition duration-200 flex items-center">
                     <svg className="w-5 h-5 mr-2 transform rotate-180" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
                     تماشای فیلم
                   </button>
@@ -496,7 +527,17 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
                       <a href="javascript:void(0)" onClick={() => handleViewAllClick('Continue Watching')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {continueWatching.map(renderMovieCard)} 
+                      {continueWatching.map(item => (
+                        <ContentCard
+                          key={`${item.id}-${item.media_type}`} // Ensure unique key
+                          item={item}
+                          loggedInUserId={loggedInUserId}
+                          initialIsWatchlisted={watchlistedIds.has(`${item.id}-${item.media_type}`)}
+                          initialIsFavorited={favoritedIds.has(`${item.id}-${item.media_type}`)}
+                          onWatchlistToggled={handleWatchlistToggled}
+                          onFavoriteToggled={handleFavoriteToggled}
+                        />
+                      ))}
                     </div>
                   </section>
                 )}
@@ -508,24 +549,9 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
                       <h3 className="text-2xl font-bold text-gray-200">ترندینگ</h3>
                       <a href="javascript:void(0)" onClick={() => handleViewAllClick('Trending')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {trendingContent.map((item) => (
-                        <div key={item.id} className="relative bg-gray-800 rounded-lg overflow-hidden shadow-lg flex items-center transform transition-transform hover:scale-[1.02] cursor-pointer"
-                             onClick={() => handleContentClick(item.id, item.media_type)}>
-                          <img src={item.thumbnail} alt={item.title} className="w-32 h-24 object-cover flex-shrink-0"
-                               onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 180, "خطای عکس"); }}/>
-                          <div className="p-3 flex-grow">
-                            <h4 className="text-white font-semibold text-base truncate">{item.title}</h4>
-                            <p className="text-gray-400 text-xs mt-1">{item.genre} | {item.year}</p>
-                            {item.rating && (
-                              <div className="flex items-center text-yellow-400 text-sm mt-1">
-                                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.538 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.783.57-1.838-.197-1.538-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.92 8.72c-.783-.57-.381-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z"></path></svg>
-                                {item.rating} / 10
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                    {/* Updated to use renderTrendingPreviewItem for smaller cards */}
+                    <div className="space-y-3">
+                      {trendingContent.slice(0, 4).map(renderTrendingPreviewItem)} {/* Display only first few items as preview */}
                     </div>
                   </section>
                 )}
@@ -538,24 +564,44 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
                       <a href="javascript:void(0)" onClick={() => handleViewAllClick('Popular')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {popularMovies.map(renderMovieCard)}
+                      {popularMovies.map(item => (
+                        <ContentCard
+                          key={`${item.id}-${item.media_type}`}
+                          item={item}
+                          loggedInUserId={loggedInUserId}
+                          initialIsWatchlisted={watchlistedIds.has(`${item.id}-${item.media_type}`)}
+                          initialIsFavorited={favoritedIds.has(`${item.id}-${item.media_type}`)}
+                          onWatchlistToggled={handleWatchlistToggled}
+                          onFavoriteToggled={handleFavoriteToggled}
+                        />
+                      ))}
                     </div>
                   </section>
                 )}
 
-                {/* My Watchlist Section */}
+                {/* My Watchlist Section - No ContentCard for this section as it has specific removal logic */}
+                {/* My Watchlist Section will be updated in the WatchlistPage directly instead of dashboard preview */}
                 {myWatchlist.length > 0 && (
                   <section>
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-2xl font-bold text-gray-200">لیست تماشای من</h3>
                       <a href="javascript:void(0)" onClick={() => handleViewAllClick('My Watchlist')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {myWatchlist.map((item) => (
-                        <div key={item.id} className="relative flex-shrink-0 w-48 bg-gray-800 rounded-lg overflow-hidden shadow-lg transform transition-transform hover:scale-105 cursor-pointer"
-                             onClick={() => handleContentClick(item.id, item.media_type)}>
-                          <img src={item.thumbnail} alt={item.title} className="w-full h-32 object-cover"
-                               onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 180, "خطای عکس"); }}/>
+                     {/* Display a preview of watchlist items without action buttons here, full functionality is on WatchlistPage */}
+                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {myWatchlist.slice(0,4).map((item) => (
+                        // Display only first few items
+                        <div
+                          key={item.id}
+                          className="relative flex-shrink-0 w-48 bg-gray-800 rounded-lg overflow-hidden shadow-lg transform transition-transform hover:scale-105 cursor-pointer"
+                          onClick={() => navigate(`/content/${item.id}?type=${item.media_type}`)}
+                        >
+                          <img
+                            src={item.thumbnail}
+                            alt={item.title}
+                            className="w-full h-32 object-cover"
+                            onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 180, "خطای عکس"); }}
+                          />
                           <div className="p-3">
                             <h3 className="text-white font-semibold text-sm truncate">{item.title}</h3>
                             <p className="text-gray-400 text-xs mt-1">{item.media_type === 'movie' ? 'فیلم' : 'سریال'}</p>

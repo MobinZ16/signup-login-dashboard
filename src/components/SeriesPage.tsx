@@ -1,21 +1,63 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { type MovieOrSeries, getPlaceholderImage, getTmdbImageUrl, mapGenreIdsToNames } from '../mockData';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Loader from './Loader';
+import ContentCard from './content/ContentCard';
 
-const SeriesPage: React.FC = () => {
+interface SeriesPageProps {
+  loggedInUserId: number | null; // Receive loggedInUserId
+}
+
+const SeriesPage: React.FC<SeriesPageProps> = ({ loggedInUserId }) => {
   const navigate = useNavigate();
   const [series, setSeries] = useState<MovieOrSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [myWatchlist, setMyWatchlist] = useState<MovieOrSeries[]>([]); // State for user's watchlist
+  const [myFavorites, setMyFavorites] = useState<MovieOrSeries[]>([]); // State for user's favorites
+
+  // Helper sets for quick lookup
+  const watchlistedIds = new Set(myWatchlist.map(item => `${item.id}-${item.media_type}`));
+  const favoritedIds = new Set(myFavorites.map(item => `${item.id}-${item.media_type}`));
+
+  // Function to fetch user-specific lists (watchlist and favorites)
+  const fetchUserLists = useCallback(async () => {
+    if (loggedInUserId) {
+      try {
+        const watchlistRes = await axios.get(`http://127.0.0.1:5000/api/watchlist/${loggedInUserId}`);
+        setMyWatchlist(watchlistRes.data.map((item: any) => ({
+          id: item.content_id,
+          media_type: item.content_type,
+          title: item.title,
+          thumbnail: item.thumbnail_url,
+        })));
+
+        const favoritesRes = await axios.get(`http://127.0.0.1:5000/api/favorites/${loggedInUserId}`);
+        setMyFavorites(favoritesRes.data.map((item: any) => ({
+          id: item.content_id,
+          media_type: item.content_type,
+          title: item.title,
+          thumbnail: item.thumbnail_url,
+        })));
+      } catch (err) {
+        console.error("Failed to fetch user lists:", err);
+      }
+    } else {
+      setMyWatchlist([]);
+      setMyFavorites([]);
+    }
+  }, [loggedInUserId]);
+
 
   useEffect(() => {
     const fetchPopularTvSeries = async () => {
       try {
         setLoading(true);
         setError(null);
-        // Fetch popular TV series using the new endpoint
+        // Fetch user lists first
+        await fetchUserLists();
+
         const response = await axios.get('http://127.0.0.1:5000/api/tmdb/popular_tv');
         const mappedSeries: MovieOrSeries[] = response.data.map((item: any) => ({
           id: String(item.id),
@@ -36,42 +78,17 @@ const SeriesPage: React.FC = () => {
     };
 
     fetchPopularTvSeries();
-  }, []);
+  }, [loggedInUserId, fetchUserLists]);
 
-  const handleContentClick = (id: string, type: 'movie' | 'tv' | undefined) => {
-    navigate(`/content/${id}?type=${type}`);
-  };
+  // Callbacks for ContentCard to notify SeriesPage about changes
+  const handleWatchlistToggled = useCallback(() => {
+    fetchUserLists();
+  }, [fetchUserLists]);
 
-  const renderSeriesCard = (item: MovieOrSeries) => (
-    <div
-      key={item.id}
-      className="relative flex flex-col bg-gray-800 rounded-lg overflow-hidden shadow-lg transform transition-transform hover:scale-105 cursor-pointer"
-      onClick={() => handleContentClick(item.id, item.media_type)}
-    >
-      <img
-        src={item.thumbnail}
-        alt={item.title}
-        className="w-full h-60 object-cover"
-        onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 450, "خطای عکس"); }}
-      />
-      <div className="p-3 flex-grow">
-        <h3 className="text-white font-semibold text-lg truncate">{item.title}</h3>
-        <p className="text-gray-400 text-sm mt-1">{item.genre} | {item.year}</p>
-        {item.rating && (
-          <div className="flex items-center text-yellow-400 text-sm mt-1">
-            <svg
-              className="w-4 h-4 mr-1"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.538 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.783.57-1.838-.197-1.538-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.92 8.72c-.783-.57-.381-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z"></path>
-            </svg>
-            {item.rating} / 10
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  const handleFavoriteToggled = useCallback(() => {
+    fetchUserLists();
+  }, [fetchUserLists]);
+
 
   if (loading) {
     return (
@@ -110,7 +127,17 @@ const SeriesPage: React.FC = () => {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
         {series.length > 0 ? (
-          series.map(renderSeriesCard)
+          series.map(item => (
+            <ContentCard
+              key={`${item.id}-${item.media_type}`}
+              item={item}
+              loggedInUserId={loggedInUserId}
+              initialIsWatchlisted={watchlistedIds.has(`${item.id}-${item.media_type}`)}
+              initialIsFavorited={favoritedIds.has(`${item.id}-${item.media_type}`)}
+              onWatchlistToggled={handleWatchlistToggled}
+              onFavoriteToggled={handleFavoriteToggled}
+            />
+          ))
         ) : (
           <p className="col-span-full text-center text-gray-400">هیچ سریالی یافت نشد.</p>
         )}
