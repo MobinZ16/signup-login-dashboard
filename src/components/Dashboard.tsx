@@ -10,9 +10,11 @@ interface DashboardProps {
   userName: string;
   onLogout: () => void;
   loggedInUserId: number | null;
+  isLoggedIn: boolean; // New prop to check login status
+  openAuthOverlay: (mode: 'login' | 'signup') => void; // New prop to open auth overlay
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, loggedInUserId }) => {
+const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, loggedInUserId, isLoggedIn, openAuthOverlay }) => {
   const navigate = useNavigate();
 
   const [featuredMovie, setFeaturedMovie] = useState<MovieOrSeries | undefined>(undefined);
@@ -20,7 +22,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
   const [popularMovies, setPopularMovies] = useState<MovieOrSeries[]>([]);
   const [recentlyUpdatedSeries, setRecentlyUpdatedSeries] = useState<MovieOrSeries[]>([]);
   const [myWatchlist, setMyWatchlist] = useState<MovieOrSeries[]>([]);
-  const [myFavorites, setMyFavorites] = useState<MovieOrSeries[]>([]); // State to hold user's favorites
+  const [myFavorites, setMyFavorites] = useState<MovieOrSeries[]>([]); 
   
   const [continueWatching, setContinueWatching] = useState<MovieOrSeries[]>([]); 
 
@@ -56,18 +58,19 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
   }, [isDarkMode]);
 
   // Helper sets for quick lookup of watchlisted/favorited items
-  const watchlistedIds = new Set(myWatchlist.map(item => `${item.id}-${item.media_type}`));
-  const favoritedIds = new Set(myFavorites.map(item => `${item.id}-${item.media_type}`));
+  // Only create these if logged in, otherwise they'll be empty anyway
+  const watchlistedIds = isLoggedIn ? new Set(myWatchlist.map(item => `${item.id}-${item.media_type}`)) : new Set();
+  const favoritedIds = isLoggedIn ? new Set(myFavorites.map(item => `${item.id}-${item.media_type}`)) : new Set();
 
   // Function to fetch user-specific lists (watchlist and favorites)
   const fetchUserLists = useCallback(async () => {
-    if (loggedInUserId) {
+    if (loggedInUserId && isLoggedIn) { // Only fetch if user is logged in
       try {
         const watchlistRes = await axios.get(`http://127.0.0.1:5000/api/watchlist/${loggedInUserId}`);
         setMyWatchlist(watchlistRes.data.map((item: any) => ({
           id: item.content_id,
           media_type: item.content_type,
-          title: item.title, // Only need ID and type for sets, but good to keep full object
+          title: item.title, 
           thumbnail: item.thumbnail_url,
         })));
 
@@ -80,13 +83,12 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
         })));
       } catch (err) {
         console.error("Failed to fetch user lists:", err);
-        // Optionally set an error state or message for user lists
       }
     } else {
       setMyWatchlist([]);
       setMyFavorites([]);
     }
-  }, [loggedInUserId]);
+  }, [loggedInUserId, isLoggedIn]);
 
 
   useEffect(() => {
@@ -95,14 +97,16 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
         setLoading(true);
         setError(null);
 
-        // Fetch user lists first, so their status can be reflected in cards
-        await fetchUserLists(); 
+        // Fetch user lists only if logged in
+        if (isLoggedIn) {
+          await fetchUserLists(); 
+        }
 
         const trendingRes = await axios.get('http://127.0.0.1:5000/api/tmdb/trending_all');
         const mappedTrending: MovieOrSeries[] = trendingRes.data.map((item: any) => ({
           id: String(item.id),
           title: item.title || item.name || 'N/A',
-          thumbnail: getTmdbImageUrl(item.poster_path, 'w300', 300, 180),
+          thumbnail: getTmdbImageUrl(item.poster_path, 'w300', 300, 450), 
           genre: mapGenreIdsToNames(item.genre_ids, item.media_type),
           year: new Date(item.release_date || item.first_air_date || '0').getFullYear() || 0,
           rating: item.vote_average ? parseFloat(item.vote_average.toFixed(1)) : 0,
@@ -114,7 +118,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
         const mappedPopular: MovieOrSeries[] = popularRes.data.map((item: any) => ({
           id: String(item.id),
           title: item.title || 'N/A',
-          thumbnail: getTmdbImageUrl(item.poster_path, 'w300', 300, 180),
+          thumbnail: getTmdbImageUrl(item.poster_path, 'w300', 300, 450), 
           genre: mapGenreIdsToNames(item.genre_ids, 'movie'),
           year: new Date(item.release_date || '0').getFullYear() || 0,
           rating: item.vote_average ? parseFloat(item.vote_average.toFixed(1)) : 0,
@@ -147,8 +151,8 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
             });
         }
         
-        // Fetch continue watching after fetching user lists
-        if (loggedInUserId) {
+        // Fetch continue watching only if logged in
+        if (loggedInUserId && isLoggedIn) {
           const cwRes = await axios.get(`http://127.0.0.1:5000/api/continue_watching/${loggedInUserId}`);
           const mappedContinueWatching: MovieOrSeries[] = cwRes.data.map((item: any) => ({
             id: item.content_id,
@@ -175,13 +179,24 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
     };
 
     fetchDashboardData();
-  }, [loggedInUserId, fetchUserLists]); // Add fetchUserLists as a dependency
+  }, [loggedInUserId, isLoggedIn, fetchUserLists]); // Add isLoggedIn to dependencies
+
 
   const handleNavLinkClick = (path: string) => {
+    // Only navigate to personal pages if logged in
+    if (!isLoggedIn && (path === '/favorites' || path === '/watchlist' || path === '/continue-watching')) {
+      openAuthOverlay('login'); // Prompt login if trying to access personal page
+      return;
+    }
     navigate(path);
   };
 
   const handleViewAllClick = (section: string) => {
+    // Only navigate to personal pages if logged in
+    if (!isLoggedIn && (section === 'My Watchlist' || section === 'Continue Watching')) {
+      openAuthOverlay('login'); // Prompt login if trying to access personal page
+      return;
+    }
     switch (section) {
       case 'Trending':
         navigate('/trending'); 
@@ -241,7 +256,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
         return {
           id: String(item.id),
           title: item.title || item.name || 'N/A',
-          thumbnail: getTmdbImageUrl(item.poster_path, 'w300', 300, 450),
+          thumbnail: getTmdbImageUrl(item.poster_path, 'w300', 300, 450), 
           genre: mapGenreIdsToNames(item.genre_ids, mediaType),
           year: !isNaN(year) && year > 0 ? year : 0, 
           rating: item.vote_average ? parseFloat(item.vote_average.toFixed(1)) : 0,
@@ -268,38 +283,9 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
     fetchUserLists(); // Re-fetch user lists to keep them synchronized
   }, [fetchUserLists]);
 
-  // New render function for smaller trending preview items
-  const renderTrendingPreviewItem = (item: MovieOrSeries) => (
-    <div
-      key={item.id}
-      className="flex items-center p-2 rounded-lg hover:bg-gray-800 transition duration-200 cursor-pointer"
-      onClick={() => navigate(`/content/${item.id}?type=${item.media_type}`)}
-    >
-      <img
-        src={item.thumbnail}
-        alt={item.title}
-        className="w-20 h-20 rounded-md object-cover mr-3" // Smaller image
-        onError={(e) => { e.currentTarget.src = getPlaceholderImage(80, 80, "خطای عکس"); }}
-      />
-      <div className="flex-grow">
-        <h4 className="text-white font-semibold text-sm">{item.title}</h4>
-        <p className="text-gray-400 text-xs mt-1">{item.genre} | {item.year}</p>
-      </div>
-      {item.rating && (
-        <div className="flex items-center text-yellow-400 text-xs">
-          <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.538 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.783.57-1.838-.197-1.538-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.92 8.72c-.783-.57-.381-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z"></path>
-          </svg>
-          {item.rating}
-        </div>
-      )}
-    </div>
-  );
-
-
   const renderRecentlyUpdatedItem = (item: MovieOrSeries) => (
     <div key={item.id} className="flex items-center p-2 rounded-lg hover:bg-gray-800 transition duration-200 cursor-pointer"
-         onClick={() => navigate(`/content/${item.id}?type=${item.media_type}`)}> {/* Keep direct navigation for these smaller cards */}
+         onClick={() => navigate(`/content/${item.id}?type=${item.media_type}`)}> 
       <img src={item.thumbnail} alt={item.title} className="w-12 h-12 rounded-md object-cover mr-3" 
            onError={(e) => { e.currentTarget.src = getPlaceholderImage(80, 80, "خطای عکس"); }}/>
       <div className="flex-grow">
@@ -331,25 +317,10 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
         <h2 className="text-3xl font-extrabold text-red-500 mb-4">خطا در بارگذاری</h2>
         <p className="text-lg">{error}</p>
         <button
-          onClick={onLogout}
+          onClick={() => window.location.reload()} 
           className="mt-6 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-semibold"
         >
-          بازگشت به صفحه ورود
-        </button>
-      </div>
-    );
-  }
-
-  if (!userEmail) {
-    return (
-      <div className="text-white text-center p-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm">
-        <h2 className="text-3xl font-extrabold text-[#09f] mb-4">داشبورد</h2>
-        <p className="text-lg">اطلاعات کاربری یافت نشد. لطفاً دوباره وارد شوید.</p>
-        <button
-          onClick={onLogout}
-          className="mt-6 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200"
-        >
-          خروج
+          تلاش مجدد
         </button>
       </div>
     );
@@ -409,19 +380,40 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
               <div className="ml-3 text-sm font-medium">حالت تیره</div>
             </label>
           </div>
-          <div className="mt-6 p-4 bg-gray-800 rounded-lg text-white">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold">اشتراک</span>
-              <svg className="w-4 h-4 text-[#09f]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"></path></svg>
+          {isLoggedIn ? (
+            <div className="mt-6 p-4 bg-gray-800 rounded-lg text-white">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold">اشتراک</span>
+                <svg className="w-4 h-4 text-[#09f]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"></path></svg>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">۳۰ روز باقی مانده</p>
             </div>
-            <p className="text-xs text-gray-400 mt-1">۳۰ روز باقی مانده</p>
-          </div>
-          <button
-            onClick={onLogout}
-            className="mt-6 w-full px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-semibold"
-          >
-            خروج
-          </button>
+          ) : (
+            <div className="mt-6 p-4 bg-gray-800 rounded-lg text-white text-center">
+              <p className="text-sm font-semibold mb-3">با ورود/ثبت‌نام، امکانات کامل را تجربه کنید!</p>
+              <button
+                onClick={() => openAuthOverlay('login')}
+                className="px-6 py-2 bg-[#09f] text-white rounded-lg hover:bg-opacity-90 transition duration-200 font-semibold mr-4"
+              >
+                ورود
+              </button>
+              <button
+                onClick={() => openAuthOverlay('signup')}
+                className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition duration-200 font-semibold"
+              >
+                ثبت‌نام
+              </button>
+            </div>
+          )}
+          
+          {isLoggedIn && (
+            <button
+              onClick={onLogout}
+              className="mt-6 w-full px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-semibold"
+            >
+              خروج
+            </button>
+          )}
         </div>
       </aside>
 
@@ -442,23 +434,42 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
             </button>
           </form>
           <div className="flex items-center space-x-4">
-            <div className="text-gray-300">
-              <span className="font-semibold">سلام {userName}</span>
-              <p className="text-xs text-gray-400">{userEmail}</p>
-            </div>
-            <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center text-white font-bold">
-              {userName.charAt(0).toUpperCase()}
-            </div>
-            <button onClick={() => console.log("Notifications clicked")} className="text-gray-300 hover:text-[#09f] transition duration-200">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L14 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"></path></svg>
-            </button>
-            <button onClick={() => console.log("Settings clicked")} className="text-gray-300 hover:text-[#09f] transition duration-200">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.49 3.17c-.381-.088-.783.007-1.15.158 1.287 1.42 2.062 3.208 2.062 5.17 0 1.962-.775 3.75-2.062 5.17-.367.151-.769.246-1.15.158-.38-.087-.723-.332-.962-.653-.239-.32-.35-.71-.35-1.102a.75.75 0 00-.75-.75.75.75 0 00-.75.75c0 .72.296 1.39.782 1.916.486.526 1.144.86 1.868.995.724.136 1.49.063 2.18-.216.69-.279 1.27-.77 1.71-1.38.44-.61.68-1.31.68-2.07 0-.76-.24-1.46-.68-2.07-.44-.61-.99-1.1-1.71-1.38-.69-.279-1.456-.352-2.18-.216-.381.088-.783.007-1.15.158z" clipRule="evenodd"></path></svg>
-            </button>
+            {isLoggedIn ? (
+              <>
+                <div className="text-gray-300">
+                  <span className="font-semibold">سلام {userName}</span>
+                  <p className="text-xs text-gray-400">{userEmail}</p>
+                </div>
+                <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center text-white font-bold">
+                  {userName.charAt(0).toUpperCase()}
+                </div>
+                <button onClick={() => console.log("Notifications clicked")} className="text-gray-300 hover:text-[#09f] transition duration-200">
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L14 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"></path></svg>
+                </button>
+                <button onClick={() => console.log("Settings clicked")} className="text-gray-300 hover:text-[#09f] transition duration-200">
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.49 3.17c-.381-.088-.783.007-1.15.158 1.287 1.42 2.062 3.208 2.062 5.17 0 1.962-.775 3.75-2.062 5.17-.367.151-.769.246-1.15.158-.38-.087-.723-.332-.962-.653-.239-.32-.35-.71-.35-1.102a.75.75 0 00-.75-.75.75.75 0 00-.75.75c0 .72.296 1.39.782 1.916.486.526 1.144.86 1.868.995.724.136 1.49.063 2.18-.216.69-.279 1.27-.77 1.71-1.38.44-.61.68-1.31.68-2.07 0-.76-.24-1.46-.68-2.07-.44-.61-.99-1.1-1.71-1.38-.69-.279-1.456-.352-2.18-.216-.381.088-.783.007-1.15.158z" clipRule="evenodd"></path></svg>
+                </button>
+              </>
+            ) : (
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => openAuthOverlay('login')}
+                  className="px-4 py-2 bg-[#09f] text-white rounded-lg hover:bg-opacity-90 transition duration-200 font-semibold"
+                >
+                  ورود
+                </button>
+                <button
+                  onClick={() => openAuthOverlay('signup')}
+                  className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition duration-200 font-semibold"
+                >
+                  ثبت‌نام
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
-        {/* Search Results Section - NEW */}
+        {/* Search Results Section - FIX GRID */}
         {isSearching ? (
           <div className="text-white text-center py-8">
             <h3 className="text-2xl font-bold text-[#09f]">در حال جستجو...</h3>
@@ -471,7 +482,8 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
         ) : searchQuery.trim() !== '' && searchResults.length > 0 ? (
           <section className="mb-8">
             <h3 className="text-2xl font-bold text-gray-200 mb-4">نتایج جستجو برای "{searchQuery}"</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+            {/* Changed grid-cols for search results to match continue watching/trending */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6"> 
               {searchResults.map(item => (
                 <ContentCard
                   key={`${item.id}-${item.media_type}`}
@@ -519,17 +531,60 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-8">
-                {/* Continue Watching Section */}
-                {continueWatching.length > 0 && (
+                {/* Continue Watching Section (Conditional) */}
+                {isLoggedIn ? (
+                  continueWatching.length > 0 && (
+                    <section>
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-2xl font-bold text-gray-200">ادامه تماشا</h3>
+                        <a href="javascript:void(0)" onClick={() => handleViewAllClick('Continue Watching')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {continueWatching.map(item => (
+                          <ContentCard
+                            key={`${item.id}-${item.media_type}`} 
+                            item={item}
+                            loggedInUserId={loggedInUserId}
+                            initialIsWatchlisted={watchlistedIds.has(`${item.id}-${item.media_type}`)}
+                            initialIsFavorited={favoritedIds.has(`${item.id}-${item.media_type}`)}
+                            onWatchlistToggled={handleWatchlistToggled}
+                            onFavoriteToggled={handleFavoriteToggled}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  )
+                ) : (
+                  <section className="mb-8 p-6 bg-gray-800 rounded-lg text-white text-center">
+                    <h3 className="text-2xl font-bold mb-4">به Cinemovie خوش آمدید!</h3>
+                    <p className="text-gray-400 mb-4">برای دسترسی به امکانات شخصی‌سازی شده مانند "ادامه تماشا" و "لیست تماشای من"، وارد شوید یا ثبت‌نام کنید.</p>
+                    <button
+                      onClick={() => openAuthOverlay('login')}
+                      className="px-6 py-2 bg-[#09f] text-white rounded-lg hover:bg-opacity-90 transition duration-200 font-semibold mr-4"
+                    >
+                      ورود
+                    </button>
+                    <button
+                      onClick={() => openAuthOverlay('signup')}
+                      className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition duration-200 font-semibold"
+                    >
+                      ثبت‌نام
+                    </button>
+                  </section>
+                )}
+
+                {/* Trending Section */}
+                {trendingContent.length > 0 && (
                   <section>
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-2xl font-bold text-gray-200">ادامه تماشا</h3>
-                      <a href="javascript:void(0)" onClick={() => handleViewAllClick('Continue Watching')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
+                      <h3 className="text-2xl font-bold text-gray-200">ترندینگ</h3>
+                      <a href="javascript:void(0)" onClick={() => handleViewAllClick('Trending')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {continueWatching.map(item => (
+                    {/* Reverted to ContentCard for full-sized cards, kept grid-cols-2 md:grid-cols-4 */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4"> 
+                      {trendingContent.slice(0, 4).map(item => ( 
                         <ContentCard
-                          key={`${item.id}-${item.media_type}`} // Ensure unique key
+                          key={`${item.id}-${item.media_type}`}
                           item={item}
                           loggedInUserId={loggedInUserId}
                           initialIsWatchlisted={watchlistedIds.has(`${item.id}-${item.media_type}`)}
@@ -542,28 +597,15 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
                   </section>
                 )}
 
-                {/* Trending Section */}
-                {trendingContent.length > 0 && (
-                  <section>
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-2xl font-bold text-gray-200">ترندینگ</h3>
-                      <a href="javascript:void(0)" onClick={() => handleViewAllClick('Trending')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
-                    </div>
-                    {/* Updated to use renderTrendingPreviewItem for smaller cards */}
-                    <div className="space-y-3">
-                      {trendingContent.slice(0, 4).map(renderTrendingPreviewItem)} {/* Display only first few items as preview */}
-                    </div>
-                  </section>
-                )}
-
-                {/* Popular Section */}
+                {/* Popular Section - FIX GRID */}
                 {popularMovies.length > 0 && (
                   <section>
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-2xl font-bold text-gray-200">محبوب</h3>
                       <a href="javascript:void(0)" onClick={() => handleViewAllClick('Popular')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {/* Changed grid-cols for popular movies to match continue watching/trending */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4"> 
                       {popularMovies.map(item => (
                         <ContentCard
                           key={`${item.id}-${item.media_type}`}
@@ -579,29 +621,19 @@ const Dashboard: React.FC<DashboardProps> = ({ userEmail, userName, onLogout, lo
                   </section>
                 )}
 
-                {/* My Watchlist Section - No ContentCard for this section as it has specific removal logic */}
-                {/* My Watchlist Section will be updated in the WatchlistPage directly instead of dashboard preview */}
-                {myWatchlist.length > 0 && (
+                {/* My Watchlist Section (Conditional) */}
+                {isLoggedIn && myWatchlist.length > 0 && (
                   <section>
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-2xl font-bold text-gray-200">لیست تماشای من</h3>
                       <a href="javascript:void(0)" onClick={() => handleViewAllClick('My Watchlist')} className="text-[#09f] text-sm hover:underline">مشاهده همه</a>
                     </div>
-                     {/* Display a preview of watchlist items without action buttons here, full functionality is on WatchlistPage */}
                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {myWatchlist.slice(0,4).map((item) => (
-                        // Display only first few items
-                        <div
-                          key={item.id}
-                          className="relative flex-shrink-0 w-48 bg-gray-800 rounded-lg overflow-hidden shadow-lg transform transition-transform hover:scale-105 cursor-pointer"
-                          onClick={() => navigate(`/content/${item.id}?type=${item.media_type}`)}
-                        >
-                          <img
-                            src={item.thumbnail}
-                            alt={item.title}
-                            className="w-full h-32 object-cover"
-                            onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 180, "خطای عکس"); }}
-                          />
+                      {myWatchlist.slice(0,4).map((item) => ( 
+                        <div key={item.id} className="relative flex-shrink-0 w-48 bg-gray-800 rounded-lg overflow-hidden shadow-lg transform transition-transform hover:scale-105 cursor-pointer"
+                             onClick={() => navigate(`/content/${item.id}?type=${item.media_type}`)}>
+                          <img src={item.thumbnail} alt={item.title} className="w-full h-32 object-cover"
+                               onError={(e) => { e.currentTarget.src = getPlaceholderImage(300, 180, "خطای عکس"); }}/>
                           <div className="p-3">
                             <h3 className="text-white font-semibold text-sm truncate">{item.title}</h3>
                             <p className="text-gray-400 text-xs mt-1">{item.media_type === 'movie' ? 'فیلم' : 'سریال'}</p>

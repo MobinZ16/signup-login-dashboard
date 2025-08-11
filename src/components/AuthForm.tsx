@@ -28,32 +28,32 @@ const AuthForm: React.FC<AuthFormProp> = ({
 
     // Only validate userName for signup
     if (!isLogin && !personalInfo.userName.trim()) {
-      newErrors.userName = "This field is required.";
+      newErrors.userName = "این فیلد الزامی است."; // Persian translation
     }
     
     if (!personalInfo.email.trim()) {
-      newErrors.email = "This field is required.";
+      newErrors.email = "این فیلد الزامی است."; // Persian translation
     } else if (!/\S+@\S+\.\S+/.test(personalInfo.email)) {
-      newErrors.email = "Invalid email format.";
+      newErrors.email = "فرمت ایمیل نامعتبر است."; // Persian translation
     }
     
     if (!personalInfo.password.trim()) {
-      newErrors.password = "This field is required.";
+      newErrors.password = "این فیلد الزامی است."; // Persian translation
     } else if (personalInfo.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters long.";
+      newErrors.password = "رمز عبور باید حداقل ۸ کاراکتر باشد."; // Persian translation
     } else if (!/[A-Z]/.test(personalInfo.password)) {
-      newErrors.password = "Password must contain at least one uppercase letter.";
+      newErrors.password = "رمز عبور باید حداقل یک حرف بزرگ انگلیسی داشته باشد."; // Persian translation
     } else if (!/[a-z]/.test(personalInfo.password)) {
-      newErrors.password = "Password must contain at least one lowercase letter.";
+      newErrors.password = "رمز عبور باید حداقل یک حرف کوچک انگلیسی داشته باشد."; // Persian translation
     } else if (!/[0-9]/.test(personalInfo.password)) {
-      newErrors.password = "Password must contain at least one number.";
+      newErrors.password = "رمز عبور باید حداقل یک عدد داشته باشد."; // Persian translation
     }
 
     // Only validate confirmPassword for signup
     if (!isLogin && !personalInfo.confirmPassword) {
-      newErrors.confirmPassword = "This field is required.";
+      newErrors.confirmPassword = "این فیلد الزامی است."; // Persian translation
     } else if (!isLogin && personalInfo.confirmPassword !== personalInfo.password) {
-      newErrors.confirmPassword = "Passwords do not match.";
+      newErrors.confirmPassword = "رمزهای عبور با هم مطابقت ندارند."; // Persian translation
     }
 
     setValidationErrors(newErrors);
@@ -81,9 +81,9 @@ const AuthForm: React.FC<AuthFormProp> = ({
   };
 
   return (
-    <div className="w-full max-w-md p-8 space-y-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700 backdrop-filter backdrop-blur-sm">
+    <div className="w-full max-w-2xl p-8 space-y-8 bg-gray-900 bg-opacity-80 rounded-2xl shadow-2xl border border-gray-700"> {/* Changed max-w-md to max-w-2xl, removed backdrop-filter */}
       <h2 className="text-3xl font-extrabold text-center text-[#09f]">
-        {isLogin ? 'Login' : 'Sign Up'}
+        {isLogin ? 'ورود به Cinemovie' : 'ثبت نام در Cinemovie'} {/* Persian translation */}
       </h2>
       
       {/* Add noValidate to the form tag */}
@@ -91,7 +91,7 @@ const AuthForm: React.FC<AuthFormProp> = ({
         {/* Username field only for Sign Up */}
         {!isLogin && (
           <div>
-            <label htmlFor="userName" className="block text-sm font-medium text-gray-300 mb-1">Username</label>
+            <label htmlFor="userName" className="block text-sm font-medium text-gray-300 mb-1">نام کاربری</label> {/* Persian translation */}
             <input
               id="userName"
               type="text"
@@ -106,7 +106,7 @@ const AuthForm: React.FC<AuthFormProp> = ({
         )}
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">ایمیل</label> {/* Persian translation */}
           <input
             id="email"
             type="text"
@@ -120,7 +120,7 @@ const AuthForm: React.FC<AuthFormProp> = ({
         </div>
         
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+          <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">رمز عبور</label> {/* Persian translation */}
           <input
             id="password"
             type="password"
@@ -136,7 +136,7 @@ const AuthForm: React.FC<AuthFormProp> = ({
         {/* Confirm Password field only for Sign Up */}
         {!isLogin && (
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-1">Confirm Password</label>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-1">تایید رمز عبور</label> {/* Persian translation */}
             <input
               id="confirmPassword"
               type="password"
@@ -154,7 +154,7 @@ const AuthForm: React.FC<AuthFormProp> = ({
           type="submit"
           className="w-full px-4 py-2 text-white bg-[#09f] rounded-lg hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#09f] transition duration-200 ease-in-out font-semibold text-lg"
         >
-          {isLogin ? 'Login' : 'Sign Up'}
+          {isLogin ? 'ورود' : 'ثبت نام'} {/* Persian translation */}
         </button>
       </form>
       
@@ -166,7 +166,7 @@ const AuthForm: React.FC<AuthFormProp> = ({
           onClick={toggleForm}
           className="text-sm font-medium text-[#09f] hover:text-opacity-80 transition duration-200 ease-in-out"
         >
-          {isLogin ? 'Don\'t have an account? Sign up' : 'Already have an account? Log in'}
+          {isLogin ? 'حساب کاربری ندارید؟ ثبت نام کنید' : 'قبلاً حساب کاربری دارید؟ وارد شوید'} {/* Persian translation */}
         </button>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import AuthForm from "./components/AuthForm";
 import Dashboard from "./components/Dashboard";
@@ -25,13 +25,16 @@ const initialData: PersonalInfo = {
 
 const App: React.FC = () => {
   const [personalInfo, setPersonalInfo] = useState<PersonalInfo>(initialData);
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(true); // Controls AuthForm mode (login or signup)
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false); 
   const [loggedInUserEmail, setLoggedInUserEmail] = useState(''); 
   const [displayUserName, setDisplayUserName] = useState(''); 
   const [loggedInUserId, setLoggedInUserId] = useState<number | null>(null);
+
+  // New state to control visibility of AuthForm as an overlay
+  const [showAuthOverlay, setShowAuthOverlay] = useState(false);
 
   useEffect(() => {
     try {
@@ -81,13 +84,17 @@ const App: React.FC = () => {
         setLoggedInUserEmail(userEmail); 
         setDisplayUserName(userName); 
         setLoggedInUserId(userId); 
+        setShowAuthOverlay(false); // Close overlay on successful login
 
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('loggedInUserEmail', userEmail);
         localStorage.setItem('displayUserName', userName);
         localStorage.setItem('loggedInUserId', String(userId)); 
       } else if (!isLoginForm && response.status === 201) {
-        setIsLogin(true);
+        // If signup is successful, automatically switch to login form
+        setIsLogin(true); 
+        setMessage("ثبت‌نام موفقیت‌آمیز بود! اکنون می‌توانید وارد شوید.");
+        // Do NOT close overlay, let user login
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'An unexpected error occurred. Please try again.');
@@ -99,7 +106,7 @@ const App: React.FC = () => {
     setLoggedInUserEmail(''); 
     setDisplayUserName('');
     setLoggedInUserId(null); 
-    setIsLogin(true);
+    setIsLogin(true); // Reset to login form for next auth attempt
     setPersonalInfo(initialData);
     setMessage('');
     setError('');
@@ -110,94 +117,123 @@ const App: React.FC = () => {
     localStorage.removeItem('loggedInUserId');
   };
 
-  const toggleForm = () => {
+  const toggleAuthMode = useCallback(() => {
     setIsLogin((prevIsLogin) => !prevIsLogin);
-    setPersonalInfo(initialData);
+    setPersonalInfo(initialData); // Clear form fields
     setMessage('');
     setError('');
-  };
+  }, []);
+
+  // Function to open the AuthForm overlay
+  const openAuthOverlay = useCallback((mode: 'login' | 'signup') => {
+    setIsLogin(mode === 'login');
+    setShowAuthOverlay(true);
+    setMessage('');
+    setError('');
+    setPersonalInfo(initialData); // Clear form fields when opening
+  }, []);
+
+  // Function to close the AuthForm overlay
+  const closeAuthOverlay = useCallback(() => {
+    setShowAuthOverlay(false);
+    setMessage('');
+    setError('');
+    setPersonalInfo(initialData); // Clear form fields when closing
+  }, []);
 
   return (
     <Router>
       <div className="relative min-h-screen flex flex-col justify-center items-center p-4"> 
         <Pattern /> 
 
+        {/* AuthForm Overlay - Added backdrop-blur-md here */}
+        {showAuthOverlay && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4 animate-fade-in backdrop-filter backdrop-blur-md"> {/* Added backdrop-blur-md */}
+            <div className="relative">
+              <button
+                onClick={closeAuthOverlay}
+                className="absolute top-4 right-4 text-gray-300 hover:text-white text-2xl font-bold z-50"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+              <AuthForm
+                personalInfo={personalInfo}
+                onUpdate={handleUpdate}
+                onSubmit={handleSubmit}
+                isLogin={isLogin}
+                toggleForm={toggleAuthMode} // Use toggleAuthMode for switching login/signup
+                message={message}
+                error={error}
+              />
+            </div>
+          </div>
+        )}
+
         <div className="z-10 w-full h-full flex justify-center items-center">
           <Routes>
             <Route 
               path="/" 
-              element={
-                isLoggedIn ? <Navigate to="/dashboard" /> : (
-                  <AuthForm
-                    personalInfo={personalInfo}
-                    onUpdate={handleUpdate}
-                    onSubmit={handleSubmit}
-                    isLogin={isLogin}
-                    toggleForm={toggleForm}
-                    message={message}
-                    error={error}
-                  />
-                )
-              } 
+              element={<Navigate to="/dashboard" />} // Default to dashboard
             />
             <Route 
               path="/dashboard" 
               element={
-                isLoggedIn ? (
-                  <Dashboard 
-                    userEmail={loggedInUserEmail} 
-                    userName={displayUserName} 
-                    onLogout={handleLogout} 
-                    loggedInUserId={loggedInUserId} 
-                  />
-                ) : (
-                  <Navigate to="/" /> 
-                )
+                <Dashboard 
+                  userEmail={loggedInUserEmail} 
+                  userName={displayUserName} 
+                  onLogout={handleLogout} 
+                  loggedInUserId={loggedInUserId}
+                  isLoggedIn={isLoggedIn} // Pass isLoggedIn state
+                  openAuthOverlay={openAuthOverlay} // Pass function to open auth overlay
+                />
               } 
             />
+            {/* These routes now require login to access, if not logged in, they navigate to dashboard */}
             <Route 
               path="/movies" 
               element={
-                isLoggedIn ? <MoviesPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
+                isLoggedIn ? <MoviesPage loggedInUserId={loggedInUserId} /> : <Navigate to="/dashboard" /> 
               } 
             />
             <Route 
               path="/series" 
               element={
-                isLoggedIn ? <SeriesPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
+                isLoggedIn ? <SeriesPage loggedInUserId={loggedInUserId} /> : <Navigate to="/dashboard" /> 
               } 
             />
             <Route 
               path="/content/:id" 
               element={
-                isLoggedIn ? <DetailPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
+                isLoggedIn ? <DetailPage loggedInUserId={loggedInUserId} /> : <Navigate to="/dashboard" /> 
               } 
             />
             <Route 
               path="/favorites" 
               element={
-                isLoggedIn ? <FavoritesPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
+                isLoggedIn ? <FavoritesPage loggedInUserId={loggedInUserId} /> : <Navigate to="/dashboard" /> 
               } 
             />
             <Route 
               path="/watchlist" 
               element={
-                isLoggedIn ? <WatchlistPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
+                isLoggedIn ? <WatchlistPage loggedInUserId={loggedInUserId} /> : <Navigate to="/dashboard" /> 
               } 
             />
             <Route 
               path="/continue-watching" 
               element={
-                isLoggedIn ? <ContinueWatchingPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
+                isLoggedIn ? <ContinueWatchingPage loggedInUserId={loggedInUserId} /> : <Navigate to="/dashboard" /> 
               } 
             />
             <Route 
               path="/trending" 
               element={
-                isLoggedIn ? <TrendingPage loggedInUserId={loggedInUserId} /> : <Navigate to="/" /> 
+                isLoggedIn ? <TrendingPage loggedInUserId={loggedInUserId} /> : <Navigate to="/dashboard" /> 
               } 
             />
-            <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/"} />} />
+            {/* Catch-all route for any undefined paths */}
+            <Route path="*" element={<Navigate to="/dashboard" />} /> 
           </Routes>
         </div>
       </div>
